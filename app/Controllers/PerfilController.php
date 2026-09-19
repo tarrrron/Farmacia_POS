@@ -32,13 +32,16 @@ class PerfilController
     private function form(bool $editing): void
     {
         $menuOptions = $this->requireAccess(["GET", "POST"]);
-        $profile = $editing ? $this->requireProfile($_GET["id"] ?? null) : ["nombre" => ""];
+        $profile = $editing ? $this->requireProfile($_GET["id"] ?? null) : ["idperfil" => 0, "nombre" => ""];
+        $accessOptions = $this->profiles->optionsWithAccess((int) ($profile["idperfil"] ?? 0));
         $error = "";
 
         if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $this->requireCsrf();
             $name = $_POST["nombre"] ?? "";
             $profile["nombre"] = is_string($name) ? trim($name) : "";
+            $selectedOptions = $_POST["opciones"] ?? [];
+            $selectedOptions = is_array($selectedOptions) ? $selectedOptions : [];
 
             if ($profile["nombre"] === "" || mb_strlen($profile["nombre"], "UTF-8") > 50) {
                 http_response_code(422);
@@ -47,15 +50,23 @@ class PerfilController
                 try {
                     if ($editing) {
                         $this->profiles->update((int) $profile["idperfil"], $profile["nombre"]);
+                        $profileId = (int) $profile["idperfil"];
                     } else {
-                        $this->profiles->create($profile["nombre"]);
+                        $profileId = $this->profiles->create($profile["nombre"]);
                     }
+                    $this->profiles->syncAccess($profileId, $selectedOptions);
                     $this->redirect($editing ? "Perfil actualizado." : "Perfil creado.");
                 } catch (PDOException $exception) {
                     http_response_code(500);
                     $error = "No se pudo guardar el perfil. Inténtalo nuevamente.";
                 }
             }
+
+            $selectedMap = array_flip(array_map("intval", $selectedOptions));
+            foreach ($accessOptions as &$option) {
+                $option["permitido"] = isset($selectedMap[(int) $option["idopcion"]]) ? 1 : 0;
+            }
+            unset($option);
         }
 
         $csrfToken = $_SESSION["perfil_csrf"];

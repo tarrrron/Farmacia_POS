@@ -11,11 +11,19 @@ class Dashboard
     public function summary(): array
     {
         return [
-            "usuarios" => $this->countRows("usuario", "estado = 1"),
-            "productos" => $this->countRows("producto", "estado = 1"),
-            "clientes" => $this->countRows("cliente", "estado = 1"),
-            "ventas" => $this->countRows("venta", "estado = 1")
+            "ventas_dia" => $this->sumSales("DATE(fecha) = CURDATE()"),
+            "ventas_ayer" => $this->sumSales("DATE(fecha) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)"),
+            "ventas_mes" => $this->sumSales("YEAR(fecha) = YEAR(CURDATE()) AND MONTH(fecha) = MONTH(CURDATE())"),
+            "usuarios" => $this->countRows("usuario", "estado = 1")
         ];
+    }
+
+    private function sumSales(string $where): float
+    {
+        $statement = $this->db->query("SELECT COALESCE(SUM(total), 0) AS total FROM venta WHERE estado = 1 AND $where");
+        $row = $statement->fetch();
+
+        return (float) ($row["total"] ?? 0);
     }
 
     private function countRows(string $table, string $where): int
