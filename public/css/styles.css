@@ -390,6 +390,16 @@ h2 {
     background: #f8fafc;
 }
 
+.data-table small {
+    display: block;
+    margin-top: 3px;
+    color: #64748b;
+}
+
+.product-table {
+    min-width: 940px;
+}
+
 .empty-state {
     color: #64748b;
     text-align: center;
