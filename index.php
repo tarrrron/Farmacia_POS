@@ -15,11 +15,13 @@ require __DIR__ . "/app/Models/Dashboard.php";
 require __DIR__ . "/app/Controllers/AuthController.php";
 require __DIR__ . "/app/Controllers/DashboardController.php";
 require __DIR__ . "/app/Controllers/ModuleController.php";
+require __DIR__ . "/app/Controllers/PerfilController.php";
 
 $db = Database::connect();
 $authController = new AuthController(new User($db));
 $dashboardController = new DashboardController(new Dashboard($db), new Profile($db));
 $moduleController = new ModuleController(new Profile($db));
+$perfilController = new PerfilController(new Profile($db));
 $route = $_GET["route"] ?? (isset($_SESSION["idusuario"]) ? "dashboard" : "login");
 
 if ($route === "login" && $_SERVER["REQUEST_METHOD"] === "POST") {
@@ -34,6 +36,19 @@ if ($route === "logout") {
 
 if ($route === "dashboard") {
     $dashboardController->index();
+    exit;
+}
+
+$perfilRoutes = [
+    "module/perfiles" => "index",
+    "vista/perfiles.php" => "index",
+    "module/perfiles/crear" => "create",
+    "module/perfiles/editar" => "edit",
+    "module/perfiles/estado" => "changeStatus"
+];
+
+if (isset($perfilRoutes[$route])) {
+    $perfilController->{$perfilRoutes[$route]}();
     exit;
 }
 
