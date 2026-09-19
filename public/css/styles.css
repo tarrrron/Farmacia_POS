@@ -400,6 +400,10 @@ h2 {
     min-width: 940px;
 }
 
+.client-table {
+    min-width: 900px;
+}
+
 .empty-state {
     color: #64748b;
     text-align: center;
