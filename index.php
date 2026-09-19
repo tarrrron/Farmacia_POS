@@ -1,23 +1,38 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Full Heart - Sistema POS</title>
-    <link rel="stylesheet" href="public/css/styles.css">
-</head>
-<body>
-    <?php require __DIR__ . '/app/Views/components/header.php'; ?>
+<?php
+$sessionPath = __DIR__ . "/storage/sessions";
 
-    <div class="layout">
-        <?php require __DIR__ . '/app/Views/components/sidebar.php'; ?>
+if (!is_dir($sessionPath)) {
+    mkdir($sessionPath, 0777, true);
+}
 
-        <div class="contenido">
-            <main>
-                <?php require __DIR__ . '/app/Views/dashboard.php'; ?>
-            </main>
-            <?php require __DIR__ . '/app/Views/components/footer.php'; ?>
-        </div>
-    </div>
-</body>
-</html>
+session_save_path($sessionPath);
+session_start();
+
+require __DIR__ . "/config/database.php";
+require __DIR__ . "/app/Models/User.php";
+require __DIR__ . "/app/Models/Profile.php";
+require __DIR__ . "/app/Models/Dashboard.php";
+require __DIR__ . "/app/Controllers/AuthController.php";
+require __DIR__ . "/app/Controllers/DashboardController.php";
+
+$db = Database::connect();
+$authController = new AuthController(new User($db));
+$dashboardController = new DashboardController(new Dashboard($db), new Profile($db));
+$route = $_GET["route"] ?? (isset($_SESSION["idusuario"]) ? "dashboard" : "login");
+
+if ($route === "login" && $_SERVER["REQUEST_METHOD"] === "POST") {
+    $authController->login();
+    exit;
+}
+
+if ($route === "logout") {
+    $authController->logout();
+    exit;
+}
+
+if ($route === "dashboard") {
+    $dashboardController->index();
+    exit;
+}
+
+$authController->showLogin();

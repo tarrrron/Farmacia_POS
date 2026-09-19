@@ -13,3 +13,5 @@ imagenes/productos/IMG_*
 database/*.bak.sql
 database/*_backup.sql
 database/*_local.sql
+
+storage/sessions/sess_*
