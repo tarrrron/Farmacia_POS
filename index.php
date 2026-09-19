@@ -42,4 +42,9 @@ if (str_starts_with($route, "module/")) {
     exit;
 }
 
+if (str_starts_with($route, "vista/")) {
+    $moduleController->showLegacy($route);
+    exit;
+}
+
 $authController->showLogin();
