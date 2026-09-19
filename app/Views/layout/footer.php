@@ -1,3 +1,1 @@
-<footer>
-    Farmacia POS - Avance del sistema
-</footer>
+<footer></footer>

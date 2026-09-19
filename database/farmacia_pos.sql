@@ -217,14 +217,14 @@ INSERT INTO `perfil` (`idperfil`, `nombre`, `estado`) VALUES
 (2, 'VENDEDOR', 1);
 
 INSERT INTO `opcion` (`idopcion`, `descripcion`, `url`, `icono`, `estado`) VALUES
-(1, 'Usuarios', 'vista/usuarios.php', 'fa-users', 1),
-(2, 'Perfiles', 'vista/perfiles.php', 'fa-id-badge', 1),
-(3, 'Productos', 'vista/productos.php', 'fa-shopping-basket', 1),
-(4, 'Categorias', 'vista/categorias.php', 'fa-tags', 1),
-(5, 'Clientes', 'vista/clientes.php', 'fa-address-book', 1),
-(6, 'Ventas', 'vista/ventas.php', 'fa-shopping-cart', 1),
-(7, 'Inventario', 'vista/inventario.php', 'mdi mdi-warehouse', 1),
-(8, 'Top productos', 'vista/reportes_top_productos.php', 'mdi mdi-chart-bar', 1);
+(1, 'Usuarios', 'module/usuarios', 'fa-users', 1),
+(2, 'Perfiles', 'module/perfiles', 'fa-id-badge', 1),
+(3, 'Productos', 'module/productos', 'fa-shopping-basket', 1),
+(4, 'Categorias', 'module/categorias', 'fa-tags', 1),
+(5, 'Clientes', 'module/clientes', 'fa-address-book', 1),
+(6, 'Ventas', 'module/ventas', 'fa-shopping-cart', 1),
+(7, 'Inventario', 'module/inventario', 'mdi mdi-warehouse', 1),
+(8, 'Top productos', 'module/top-productos', 'mdi mdi-chart-bar', 1);
 
 INSERT INTO `acceso` (`idperfil`, `idopcion`, `estado`) VALUES
 (1, 1, 1),

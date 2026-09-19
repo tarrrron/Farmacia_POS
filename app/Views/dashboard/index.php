@@ -21,8 +21,3 @@
         <strong><?= number_format($summary["ventas"]) ?></strong>
     </article>
 </section>
-
-<section class="panel">
-    <h2>Primer avance</h2>
-    <p>La base de datos, el login y la estructura MVC ya estan listos para continuar con los siguientes modulos.</p>
-</section>
