@@ -12,11 +12,15 @@ require __DIR__ . "/config/database.php";
 require __DIR__ . "/app/Models/User.php";
 require __DIR__ . "/app/Models/Profile.php";
 require __DIR__ . "/app/Models/Dashboard.php";
+require __DIR__ . "/app/Models/Category.php";
+require __DIR__ . "/app/Models/Product.php";
 require __DIR__ . "/app/Controllers/AuthController.php";
 require __DIR__ . "/app/Controllers/DashboardController.php";
 require __DIR__ . "/app/Controllers/ModuleController.php";
 require __DIR__ . "/app/Controllers/PerfilController.php";
 require __DIR__ . "/app/Controllers/UsuarioController.php";
+require __DIR__ . "/app/Controllers/CategoriaController.php";
+require __DIR__ . "/app/Controllers/ProductoController.php";
 
 $db = Database::connect();
 $authController = new AuthController(new User($db));
@@ -24,6 +28,8 @@ $dashboardController = new DashboardController(new Dashboard($db), new Profile($
 $moduleController = new ModuleController(new Profile($db));
 $perfilController = new PerfilController(new Profile($db));
 $usuarioController = new UsuarioController(new User($db), new Profile($db));
+$categoriaController = new CategoriaController(new Category($db), new Profile($db));
+$productoController = new ProductoController(new Product($db), new Category($db), new Profile($db));
 $route = $_GET["route"] ?? (isset($_SESSION["idusuario"]) ? "dashboard" : "login");
 
 if ($route === "login" && $_SERVER["REQUEST_METHOD"] === "POST") {
@@ -66,6 +72,36 @@ $usuarioRoutes = [
 
 if (isset($usuarioRoutes[$route])) {
     $usuarioController->{$usuarioRoutes[$route]}();
+    exit;
+}
+
+$categoriaRoutes = [
+    "module/categorias" => "index",
+    "vista/categorias.php" => "index",
+    "module/categorias/crear" => "create",
+    "module/categorias/guardar" => "store",
+    "module/categorias/editar" => "edit",
+    "module/categorias/actualizar" => "update",
+    "module/categorias/estado" => "changeStatus"
+];
+
+if (isset($categoriaRoutes[$route])) {
+    $categoriaController->{$categoriaRoutes[$route]}();
+    exit;
+}
+
+$productoRoutes = [
+    "module/productos" => "index",
+    "vista/productos.php" => "index",
+    "module/productos/crear" => "create",
+    "module/productos/guardar" => "store",
+    "module/productos/editar" => "edit",
+    "module/productos/actualizar" => "update",
+    "module/productos/estado" => "changeStatus"
+];
+
+if (isset($productoRoutes[$route])) {
+    $productoController->{$productoRoutes[$route]}();
     exit;
 }
 
