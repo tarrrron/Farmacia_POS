@@ -1,0 +1,15 @@
+.idea/
+.vscode/
+
+*.log
+*.tmp
+*.bak
+*.zip
+*.rar
+
+public/assets/js/*.pdf
+imagenes/productos/IMG_*
+
+database/*.bak.sql
+database/*_backup.sql
+database/*_local.sql
