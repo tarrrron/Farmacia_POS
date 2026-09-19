@@ -19,5 +19,6 @@
             <?php require __DIR__ . "/footer.php"; ?>
         </div>
     </div>
+    <script src="public/js/app.js"></script>
 </body>
 </html>

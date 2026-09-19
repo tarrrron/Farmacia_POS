@@ -1,10 +1,13 @@
 <header class="topbar">
-    <div>
-        <strong>Farmacia POS</strong>
-        <span>Sistema de ventas</span>
+    <div class="topbar-left">
+        <button class="menu-toggle" type="button" aria-label="Alternar menu" aria-expanded="true">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
     </div>
     <div class="topbar-user">
         <span><?= htmlspecialchars($_SESSION["nombre"] ?? "") ?></span>
-        <a class="btn btn-light" href="index.php?route=logout">Salir</a>
+        <a class="logout-link" href="index.php?route=logout">Cerrar sesion</a>
     </div>
 </header>
