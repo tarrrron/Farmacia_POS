@@ -14,10 +14,12 @@ require __DIR__ . "/app/Models/Profile.php";
 require __DIR__ . "/app/Models/Dashboard.php";
 require __DIR__ . "/app/Controllers/AuthController.php";
 require __DIR__ . "/app/Controllers/DashboardController.php";
+require __DIR__ . "/app/Controllers/ModuleController.php";
 
 $db = Database::connect();
 $authController = new AuthController(new User($db));
 $dashboardController = new DashboardController(new Dashboard($db), new Profile($db));
+$moduleController = new ModuleController(new Profile($db));
 $route = $_GET["route"] ?? (isset($_SESSION["idusuario"]) ? "dashboard" : "login");
 
 if ($route === "login" && $_SERVER["REQUEST_METHOD"] === "POST") {
@@ -32,6 +34,11 @@ if ($route === "logout") {
 
 if ($route === "dashboard") {
     $dashboardController->index();
+    exit;
+}
+
+if (str_starts_with($route, "module/")) {
+    $moduleController->show($route);
     exit;
 }
 
