@@ -58,7 +58,10 @@ $usuarioRoutes = [
     "module/usuarios" => "index",
     "vista/usuarios.php" => "index",
     "module/usuarios/crear" => "create",
-    "module/usuarios/guardar" => "store"
+    "module/usuarios/guardar" => "store",
+    "module/usuarios/editar" => "edit",
+    "module/usuarios/actualizar" => "update",
+    "module/usuarios/estado" => "changeStatus"
 ];
 
 if (isset($usuarioRoutes[$route])) {
