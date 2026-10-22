@@ -212,6 +212,24 @@ CREATE TABLE `detalle_venta` (
   CONSTRAINT `fk_detalle_producto` FOREIGN KEY (`idproducto`) REFERENCES `producto` (`idproducto`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `movimiento_inventario` (
+  `idmovimiento` int(11) NOT NULL AUTO_INCREMENT,
+  `idproducto` int(11) NOT NULL,
+  `idusuario` int(11) NOT NULL,
+  `tipo` enum('ENTRADA','SALIDA') NOT NULL,
+  `cantidad` decimal(11,2) NOT NULL,
+  `stock_anterior` decimal(11,2) NOT NULL,
+  `stock_nuevo` decimal(11,2) NOT NULL,
+  `motivo` varchar(255) NOT NULL,
+  `fecha` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`idmovimiento`),
+  KEY `idx_movimiento_producto` (`idproducto`),
+  KEY `idx_movimiento_usuario` (`idusuario`),
+  KEY `idx_movimiento_fecha` (`fecha`),
+  CONSTRAINT `fk_movimiento_producto` FOREIGN KEY (`idproducto`) REFERENCES `producto` (`idproducto`),
+  CONSTRAINT `fk_movimiento_usuario` FOREIGN KEY (`idusuario`) REFERENCES `usuario` (`idusuario`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO `perfil` (`idperfil`, `nombre`, `estado`) VALUES
 (1, 'ADMINISTRADOR', 1),
 (2, 'VENDEDOR', 1);

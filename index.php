@@ -24,6 +24,7 @@ require __DIR__ . "/app/Controllers/UsuarioController.php";
 require __DIR__ . "/app/Controllers/CategoriaController.php";
 require __DIR__ . "/app/Controllers/ProductoController.php";
 require __DIR__ . "/app/Controllers/ClienteController.php";
+require __DIR__ . "/app/Controllers/VentaController.php";
 require __DIR__ . "/app/Models/Inventario.php";
 require __DIR__ . "/app/Controllers/InventarioController.php";
 
@@ -37,6 +38,7 @@ $usuarioController = new UsuarioController(new User($db), new Profile($db));
 $categoriaController = new CategoriaController(new Category($db), new Profile($db));
 $productoController = new ProductoController(new Product($db), new Category($db), new Profile($db));
 $clienteController = new ClienteController(new Client($db), new Profile($db));
+$ventaController = new VentaController(new Sale($db), new Profile($db));
 $inventarioController = new InventarioController(new Inventario($db),new Profile($db));
 $route = $_GET["route"] ?? (isset($_SESSION["idusuario"]) ? "dashboard" : "login");
 
