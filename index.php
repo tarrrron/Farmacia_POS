@@ -15,6 +15,7 @@ require __DIR__ . "/app/Models/Dashboard.php";
 require __DIR__ . "/app/Models/Category.php";
 require __DIR__ . "/app/Models/Product.php";
 require __DIR__ . "/app/Models/Client.php";
+require __DIR__ . "/app/Models/Sale.php";
 require __DIR__ . "/app/Controllers/AuthController.php";
 require __DIR__ . "/app/Controllers/DashboardController.php";
 require __DIR__ . "/app/Controllers/ModuleController.php";
@@ -121,6 +122,19 @@ $clienteRoutes = [
     "module/clientes/actualizar" => "update",
     "module/clientes/estado" => "changeStatus"
 ];
+
+$ventaRoutes = [
+    "module/ventas" => "index",
+    "vista/ventas.php" => "index",
+    "module/ventas/crear" => "create",
+    "module/ventas/guardar" => "store",
+    "module/ventas/ver" => "show"
+];
+
+if (isset($ventaRoutes[$route])) {
+    $ventaController->{$ventaRoutes[$route]}();
+    exit;
+}
 
 if (isset($clienteRoutes[$route])) {
     $clienteController->{$clienteRoutes[$route]}();
