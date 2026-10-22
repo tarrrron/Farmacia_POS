@@ -26,6 +26,7 @@ require __DIR__ . "/app/Controllers/ClienteController.php";
 require __DIR__ . "/app/Models/Inventario.php";
 require __DIR__ . "/app/Controllers/InventarioController.php";
 
+
 $db = Database::connect();
 $authController = new AuthController(new User($db));
 $dashboardController = new DashboardController(new Dashboard($db), new Profile($db));

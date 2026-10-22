@@ -14,6 +14,7 @@ $errors = $errors ?? [];
 
 <section class="panel">
 
+
     <?php if ($errors): ?>
         <div class="alert alert-error" role="alert">
             <ul>

@@ -146,6 +146,7 @@ class InventarioController
             $this->fail(403, "Solicitud invalida.");
         }
     }
+    
 
     private function formError(string $message): void
     {

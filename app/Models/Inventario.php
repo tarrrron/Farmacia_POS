@@ -177,6 +177,7 @@ class Inventario
                   :anterior, :nuevo, :motivo)"
             );
 
+            
             $insert->execute([
                 "idproducto" => $idproducto,
                 "idusuario" => $idusuario,

@@ -161,6 +161,7 @@ $e = static fn($value) =>
                     </tr>
                 <?php endif; ?>
 
+                
                 <?php foreach ($movimientos as $mov): ?>
                     <tr>
                         <td><?= $e($mov["fecha"]) ?></td>
