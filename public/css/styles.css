@@ -404,6 +404,45 @@ h2 {
     min-width: 900px;
 }
 
+.sales-table { min-width: 980px; }
+
+.sale-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+    gap: 20px;
+}
+
+.sale-main, .sale-checkout { min-width: 0; }
+.sale-checkout { position: sticky; top: 18px; }
+.sale-checkout h2 { margin-bottom: 20px; }
+.sale-checkout label { margin-top: 16px; }
+.sale-checkout label:first-of-type { margin-top: 0; }
+.sale-search-label { margin: 0 0 7px; }
+.sale-product-results { position: relative; z-index: 2; display: grid; gap: 6px; margin: 8px 0 14px; }
+.sale-product-option { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; color: #1f2937; text-align: left; cursor: pointer; }
+.sale-product-option:hover { border-color: #0f766e; background: #f0fdfa; }
+.sale-product-option small { display: block; margin-top: 4px; color: #64748b; }
+.sale-product-option b { color: #0f766e; white-space: nowrap; }
+.sale-no-results { margin: 0; padding: 12px; color: #64748b; }
+.sale-count { color: #64748b; font-size: 14px; }
+.sale-detail-table { min-width: 620px; margin-top: 8px; }
+.sale-detail-table td { vertical-align: middle; }
+.sale-quantity { width: 100px; min-height: 38px; }
+.sale-remove { padding: 6px 8px; border: 0; border-radius: 5px; background: #fee2e2; color: #991b1b; font: inherit; font-size: 13px; cursor: pointer; }
+.sale-total { margin: 22px 0 16px; padding: 16px 0; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; }
+.sale-total span, .sale-total strong, .sale-total small { display: block; }
+.sale-total span { color: #64748b; }
+.sale-total strong { margin: 6px 0; color: #0f766e; font-size: 28px; }
+.sale-total small { color: #64748b; line-height: 1.4; }
+.sale-submit, .sale-cancel { width: 100%; margin-top: 8px; }
+.receipt-customer { margin: 20px 0; color: #475569; }
+.receipt-totals { display: grid; justify-content: end; gap: 10px; margin: 20px 0 0 auto; width: min(100%, 320px); }
+.receipt-totals span { display: flex; justify-content: space-between; color: #64748b; }
+.receipt-totals strong { color: #1f2937; }
+.receipt-totals .receipt-grand-total { padding-top: 12px; border-top: 1px solid #e2e8f0; color: #1f2937; font-size: 18px; font-weight: 700; }
+.receipt-totals .receipt-grand-total strong { color: #0f766e; }
+
 .empty-state {
     color: #64748b;
     text-align: center;
@@ -525,6 +564,9 @@ footer {
     .summary-grid {
         gap: 18px;
     }
+
+    .sale-layout { grid-template-columns: 1fr; }
+    .sale-checkout { position: static; }
 }
 
 @media (max-width: 700px) {
