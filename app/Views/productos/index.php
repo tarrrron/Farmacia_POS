@@ -46,12 +46,12 @@
                         </td>
                         <td><span class="status-badge <?= (int) $product["estado"] === 1 ? "is-active" : "is-muted" ?>"><?= (int) $product["estado"] === 1 ? "Activo" : "Inactivo" ?></span></td>
                         <td class="action-cell">
-                            <a class="btn btn-light btn-sm" href="index.php?route=module/productos/editar&amp;id=<?= (int) $product["idproducto"] ?>">Editar</a>
+                            <a class="btn btn-action-edit btn-sm" href="index.php?route=module/productos/editar&amp;id=<?= (int) $product["idproducto"] ?>">Editar</a>
                             <form action="index.php?route=module/productos/estado" method="post">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, "UTF-8") ?>">
                                 <input type="hidden" name="id" value="<?= (int) $product["idproducto"] ?>">
                                 <input type="hidden" name="estado" value="<?= (int) $product["estado"] === 1 ? 0 : 1 ?>">
-                                <button class="btn btn-light btn-sm" type="submit"><?= (int) $product["estado"] === 1 ? "Desactivar" : "Activar" ?></button>
+                                <button class="btn <?= (int) $product["estado"] === 1 ? "btn-action-disable" : "btn-action-enable" ?> btn-sm" type="submit"><?= (int) $product["estado"] === 1 ? "Desactivar" : "Activar" ?></button>
                             </form>
                         </td>
                     </tr>

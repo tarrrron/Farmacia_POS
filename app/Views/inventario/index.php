@@ -90,10 +90,10 @@ $e = static fn($value) =>
                         $clase = "is-muted";
                     } elseif ($stock <= 0) {
                         $estado = "Agotado";
-                        $clase = "is-muted";
+                        $clase = "is-danger";
                     } elseif ($stock <= $minimo) {
                         $estado = "Stock bajo";
-                        $clase = "is-muted";
+                        $clase = "is-warning";
                     } else {
                         $estado = "Disponible";
                         $clase = "is-active";
