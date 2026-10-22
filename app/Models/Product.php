@@ -144,4 +144,28 @@ class Product
             "idafectacion" => $product["idafectacion"]
         ];
     }
+
+   public function getTopProductos($mes = null) {
+        $sql = "SELECT p.nombre, p.codigobarra, p.stock, SUM(d.cantidad) as total_vendido 
+                FROM producto p 
+                INNER JOIN detalle_venta d ON p.idproducto = d.idproducto 
+                INNER JOIN venta v ON d.idventa = v.idventa ";
+        
+        if (!empty($mes)) {
+            $sql .= " WHERE MONTH(v.fecha) = :mes ";
+        }
+        
+        $sql .= " GROUP BY p.idproducto 
+                  ORDER BY total_vendido DESC 
+                  LIMIT 10";
+        
+        $stmt = $this->db->prepare($sql);
+        
+        if (!empty($mes)) {
+            $stmt->bindParam(':mes', $mes, PDO::PARAM_INT);
+        }
+        
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
