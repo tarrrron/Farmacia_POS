@@ -15,6 +15,7 @@ require __DIR__ . "/app/Models/Dashboard.php";
 require __DIR__ . "/app/Models/Category.php";
 require __DIR__ . "/app/Models/Product.php";
 require __DIR__ . "/app/Models/Client.php";
+require __DIR__ . "/app/Models/Sale.php";
 require __DIR__ . "/app/Controllers/AuthController.php";
 require __DIR__ . "/app/Controllers/DashboardController.php";
 require __DIR__ . "/app/Controllers/ModuleController.php";
@@ -23,6 +24,7 @@ require __DIR__ . "/app/Controllers/UsuarioController.php";
 require __DIR__ . "/app/Controllers/CategoriaController.php";
 require __DIR__ . "/app/Controllers/ProductoController.php";
 require __DIR__ . "/app/Controllers/ClienteController.php";
+require __DIR__ . "/app/Controllers/VentaController.php";
 
 $db = Database::connect();
 $authController = new AuthController(new User($db));
@@ -33,6 +35,7 @@ $usuarioController = new UsuarioController(new User($db), new Profile($db));
 $categoriaController = new CategoriaController(new Category($db), new Profile($db));
 $productoController = new ProductoController(new Product($db), new Category($db), new Profile($db));
 $clienteController = new ClienteController(new Client($db), new Profile($db));
+$ventaController = new VentaController(new Sale($db), new Profile($db));
 $route = $_GET["route"] ?? (isset($_SESSION["idusuario"]) ? "dashboard" : "login");
 
 if ($route === "login" && $_SERVER["REQUEST_METHOD"] === "POST") {
@@ -117,6 +120,19 @@ $clienteRoutes = [
     "module/clientes/actualizar" => "update",
     "module/clientes/estado" => "changeStatus"
 ];
+
+$ventaRoutes = [
+    "module/ventas" => "index",
+    "vista/ventas.php" => "index",
+    "module/ventas/crear" => "create",
+    "module/ventas/guardar" => "store",
+    "module/ventas/ver" => "show"
+];
+
+if (isset($ventaRoutes[$route])) {
+    $ventaController->{$ventaRoutes[$route]}();
+    exit;
+}
 
 if (isset($clienteRoutes[$route])) {
     $clienteController->{$clienteRoutes[$route]}();
