@@ -675,3 +675,151 @@ footer {
         grid-template-columns: 1fr;
     }
 }
+
+/* Identidad visual compartida para los modulos de farmacia */
+:root {
+    --farmacia-green: #176b59;
+    --farmacia-green-dark: #125445;
+    --farmacia-green-soft: #e7f2ee;
+    --farmacia-ink: #263b35;
+    --farmacia-muted: #72817b;
+    --farmacia-border: #dfe7e2;
+    --farmacia-paper: #ffffff;
+    --farmacia-background: #f4f7f4;
+}
+
+body {
+    color: var(--farmacia-ink);
+    background: var(--farmacia-background);
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+
+.topbar {
+    min-height: 72px;
+    padding: 12px 26px;
+    background: var(--farmacia-paper);
+    border-bottom-color: var(--farmacia-border);
+}
+
+.topbar-left { gap: 16px; }
+
+.brand-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--farmacia-ink);
+    text-decoration: none;
+}
+
+.brand-link img { display: block; border-radius: 9px; }
+.brand-link strong, .brand-link small { display: block; }
+.brand-link strong { font-size: 15px; letter-spacing: .01em; }
+.brand-link small { margin-top: 2px; color: var(--farmacia-muted); font-size: 11px; }
+.topbar-user span { color: var(--farmacia-ink); font-weight: 600; }
+.logout-link { color: var(--farmacia-green); }
+.logout-link::before { content: ""; }
+
+.sidebar {
+    width: 244px;
+    padding: 22px 16px;
+    background: #fbfcfa;
+    border-right-color: var(--farmacia-border);
+}
+
+.sidebar nav { gap: 4px; }
+.sidebar a { padding: 11px 13px; border-radius: 5px; color: #53645d; font-size: 14px; }
+.sidebar a:hover { background: #eff5f1; color: var(--farmacia-green-dark); }
+.sidebar a[aria-current="page"] { background: var(--farmacia-green-soft); color: var(--farmacia-green-dark); font-weight: 700; box-shadow: inset 3px 0 var(--farmacia-green); }
+
+main { padding: 32px clamp(18px, 3vw, 42px); }
+.page-title { margin-bottom: 22px; }
+.page-title h1 { color: var(--farmacia-ink); font-size: 25px; letter-spacing: -.02em; }
+.page-title p { margin: 6px 0 0; color: var(--farmacia-muted); font-size: 14px; }
+h2 { color: var(--farmacia-ink); }
+
+.panel, .summary-card {
+    background: var(--farmacia-paper);
+    border: 1px solid var(--farmacia-border);
+    border-radius: 7px;
+    box-shadow: 0 2px 7px rgba(35, 66, 53, .035);
+}
+
+.panel { padding: 22px; }
+.summary-grid { gap: 16px; margin-bottom: 18px; }
+.summary-card { min-height: 138px; padding: 22px 24px; border-left-width: 4px; box-shadow: 0 2px 7px rgba(35, 66, 53, .035); }
+.summary-card span { color: var(--farmacia-muted); font-size: 13px; }
+.summary-card strong { margin: 9px 0 5px; color: var(--farmacia-ink); font-size: 27px; }
+.summary-card.card-blue { border-left-color: var(--farmacia-green); }
+.summary-card.card-green { border-left-color: #4d8b63; }
+.summary-card.card-orange { border-left-color: #c58b32; }
+.summary-card.card-violet { border-left-color: #71858a; }
+
+.btn-primary { background: var(--farmacia-green); }
+.btn-primary:hover { background: var(--farmacia-green-dark); }
+.btn-light { background: #edf2ee; color: #43564e; }
+.btn-light:hover { background: #e2eae4; }
+.btn { border-radius: 5px; }
+.btn-action-edit { background: #e7eef5; color: #365d7c; }
+.btn-action-edit:hover { background: #d9e5ef; color: #294b67; }
+.btn-action-disable { background: #fff0ce; color: #8b641e; }
+.btn-action-disable:hover { background: #f8e2ad; color: #745116; }
+.btn-action-enable { background: #e5f2e9; color: #346b46; }
+.btn-action-enable:hover { background: #d4e9db; color: #285b39; }
+.btn-action-delete { background: #fbe8e5; color: #a43f36; }
+.btn-action-delete:hover { background: #f4d2cd; color: #873128; }
+.section-toolbar { margin-bottom: 16px; }
+.section-toolbar h2 { margin-bottom: 4px; }
+.section-toolbar p, .panel p { color: var(--farmacia-muted); }
+
+input, select {
+    border-color: #cfdad3;
+    border-radius: 5px;
+    color: var(--farmacia-ink);
+}
+input:focus, select:focus { outline-color: rgba(23, 107, 89, .16); border-color: var(--farmacia-green); }
+label { color: #40534b; font-size: 13px; }
+.form-stack { gap: 20px; }
+.form-grid { gap: 16px; }
+.form-actions { padding-top: 3px; }
+.access-grid, .check-card { border-color: var(--farmacia-border); }
+.check-card:hover { background: #f7faf7; }
+
+.data-table th { background: #f2f6f3; color: #52645b; font-size: 11px; letter-spacing: .045em; }
+.data-table td { border-top-color: #edf1ee; color: #3a4b43; }
+.data-table tbody tr:hover td { background: #f8faf8; }
+.data-table small { color: #819087; font-size: 12px; }
+.empty-state { padding: 28px !important; color: var(--farmacia-muted) !important; }
+.status-badge { border-radius: 4px; font-size: 12px; }
+.status-badge.is-active { background: #e5f2e9; color: #346b46; }
+.status-badge.is-muted { background: #edf0ee; color: #67746d; }
+.status-badge.is-warning { background: #fff1d7; color: #91651b; }
+.status-badge.is-danger { background: #fbe8e5; color: #a74b40; }
+.alert { border-radius: 5px; }
+.alert-success { background: #e9f4ec; color: #346b46; border-color: #d4e8d9; }
+.alert-error { background: #fbefed; color: #9a483f; border-color: #efd8d3; }
+
+.period-filter { display: flex; align-items: center; gap: 9px; }
+.period-filter label { margin: 0; white-space: nowrap; }
+.period-filter select { min-width: 155px; min-height: 40px; }
+.ranking-table { min-width: 620px; }
+.ranking-number { display: inline-grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; background: #edf3ef; color: var(--farmacia-green-dark); font-weight: 700; }
+.ranking-table tbody tr:first-child .ranking-number { background: #e6f1e9; }
+.ranking-sales { display: inline-block; padding: 5px 9px; border-radius: 4px; background: #e8f2ed; color: var(--farmacia-green-dark); font-size: 12px; font-weight: 700; }
+
+.login-body { background: #eff4f0; }
+.login-card { border-color: var(--farmacia-border); border-radius: 8px; box-shadow: 0 12px 32px rgba(35, 66, 53, .08); }
+.brand-mark { border-radius: 10px; background: var(--farmacia-green); }
+.login-card .btn-primary { background: var(--farmacia-green); }
+footer { color: #89968f; }
+
+@media (max-width: 700px) {
+    .topbar { align-items: center; flex-direction: row; padding: 10px 16px; }
+    .topbar-user { align-items: flex-end; flex-direction: column; gap: 5px; }
+    .sidebar { padding: 12px 14px; background: #fbfcfa; }
+    .sidebar nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .sidebar a { padding: 10px; }
+    .sidebar a[aria-current="page"] { box-shadow: inset 3px 0 var(--farmacia-green); }
+    .period-filter { align-items: stretch; flex-direction: column; }
+    .period-filter select { width: 100%; }
+    .panel { padding: 17px; }
+}

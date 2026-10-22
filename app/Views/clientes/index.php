@@ -44,12 +44,12 @@
                         <td><?= htmlspecialchars($client["direccion"] ?: "Sin direccion", ENT_QUOTES, "UTF-8") ?></td>
                         <td><span class="status-badge <?= (int) $client["estado"] === 1 ? "is-active" : "is-muted" ?>"><?= (int) $client["estado"] === 1 ? "Activo" : "Inactivo" ?></span></td>
                         <td class="action-cell">
-                            <a class="btn btn-light btn-sm" href="index.php?route=module/clientes/editar&amp;id=<?= (int) $client["idcliente"] ?>">Editar</a>
+                            <a class="btn btn-action-edit btn-sm" href="index.php?route=module/clientes/editar&amp;id=<?= (int) $client["idcliente"] ?>">Editar</a>
                             <form action="index.php?route=module/clientes/estado" method="post">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, "UTF-8") ?>">
                                 <input type="hidden" name="id" value="<?= (int) $client["idcliente"] ?>">
                                 <input type="hidden" name="estado" value="<?= (int) $client["estado"] === 1 ? 0 : 1 ?>">
-                                <button class="btn btn-light btn-sm" type="submit"><?= (int) $client["estado"] === 1 ? "Desactivar" : "Activar" ?></button>
+                                <button class="btn <?= (int) $client["estado"] === 1 ? "btn-action-disable" : "btn-action-enable" ?> btn-sm" type="submit"><?= (int) $client["estado"] === 1 ? "Desactivar" : "Activar" ?></button>
                             </form>
                         </td>
                     </tr>
