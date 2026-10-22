@@ -15,6 +15,10 @@ class DashboardController
         $this->requireSession();
 
         $summary = $this->dashboard->summary();
+        $weeklySales = $this->dashboard->weeklySales();
+        $stockStatus = $this->dashboard->stockStatus();
+        $lowStockProducts = $this->dashboard->lowStockProducts();
+        $recentSales = $this->dashboard->recentSales();
         $menuOptions = $this->profiles->menuOptions((int) $_SESSION["idperfil"]);
         $view = __DIR__ . "/../Views/dashboard/index.php";
 

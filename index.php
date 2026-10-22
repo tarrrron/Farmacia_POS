@@ -14,6 +14,8 @@ require __DIR__ . "/app/Models/Profile.php";
 require __DIR__ . "/app/Models/Dashboard.php";
 require __DIR__ . "/app/Models/Category.php";
 require __DIR__ . "/app/Models/Product.php";
+require __DIR__ . "/app/Models/Client.php";
+require __DIR__ . "/app/Models/Sale.php";
 require __DIR__ . "/app/Controllers/AuthController.php";
 require __DIR__ . "/app/Controllers/DashboardController.php";
 require __DIR__ . "/app/Controllers/ModuleController.php";
@@ -22,6 +24,10 @@ require __DIR__ . "/app/Controllers/UsuarioController.php";
 require __DIR__ . "/app/Controllers/CategoriaController.php";
 require __DIR__ . "/app/Controllers/ProductoController.php";
 require __DIR__ . "/app/Controllers/TopProductosController.php";
+require __DIR__ . "/app/Controllers/ClienteController.php";
+require __DIR__ . "/app/Models/Inventario.php";
+require __DIR__ . "/app/Controllers/InventarioController.php";
+
 
 $db = Database::connect();
 $authController = new AuthController(new User($db));
@@ -32,6 +38,8 @@ $usuarioController = new UsuarioController(new User($db), new Profile($db));
 $categoriaController = new CategoriaController(new Category($db), new Profile($db));
 $productoController = new ProductoController(new Product($db), new Category($db), new Profile($db));
 $topProductosController = new TopProductosController();
+$clienteController = new ClienteController(new Client($db), new Profile($db));
+$inventarioController = new InventarioController(new Inventario($db),new Profile($db));
 $route = $_GET["route"] ?? (isset($_SESSION["idusuario"]) ? "dashboard" : "login");
 
 if ($route === "login" && $_SERVER["REQUEST_METHOD"] === "POST") {
@@ -109,6 +117,45 @@ $productoRoutes = [
 
 if (isset($productoRoutes[$route])) {
     $productoController->{$productoRoutes[$route]}();
+    exit;
+}
+
+$clienteRoutes = [
+    "module/clientes" => "index",
+    "vista/clientes.php" => "index",
+    "module/clientes/crear" => "create",
+    "module/clientes/guardar" => "store",
+    "module/clientes/editar" => "edit",
+    "module/clientes/actualizar" => "update",
+    "module/clientes/estado" => "changeStatus"
+];
+
+$ventaRoutes = [
+    "module/ventas" => "index",
+    "vista/ventas.php" => "index",
+    "module/ventas/crear" => "create",
+    "module/ventas/guardar" => "store",
+    "module/ventas/ver" => "show"
+];
+
+if (isset($ventaRoutes[$route])) {
+    $ventaController->{$ventaRoutes[$route]}();
+    exit;
+}
+
+if (isset($clienteRoutes[$route])) {
+    $clienteController->{$clienteRoutes[$route]}();
+    exit;
+}
+
+$inventarioRoutes = [
+    "module/inventario" => "index",
+    "module/inventario/crear" => "create",
+    "module/inventario/guardar" => "store"
+];
+
+if (isset($inventarioRoutes[$route])) {
+    $inventarioController->{$inventarioRoutes[$route]}();
     exit;
 }
 
