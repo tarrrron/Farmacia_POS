@@ -24,7 +24,9 @@ require __DIR__ . "/app/Controllers/UsuarioController.php";
 require __DIR__ . "/app/Controllers/CategoriaController.php";
 require __DIR__ . "/app/Controllers/ProductoController.php";
 require __DIR__ . "/app/Controllers/ClienteController.php";
-require __DIR__ . "/app/Controllers/VentaController.php";
+require __DIR__ . "/app/Models/Inventario.php";
+require __DIR__ . "/app/Controllers/InventarioController.php";
+
 
 $db = Database::connect();
 $authController = new AuthController(new User($db));
@@ -35,7 +37,7 @@ $usuarioController = new UsuarioController(new User($db), new Profile($db));
 $categoriaController = new CategoriaController(new Category($db), new Profile($db));
 $productoController = new ProductoController(new Product($db), new Category($db), new Profile($db));
 $clienteController = new ClienteController(new Client($db), new Profile($db));
-$ventaController = new VentaController(new Sale($db), new Profile($db));
+$inventarioController = new InventarioController(new Inventario($db),new Profile($db));
 $route = $_GET["route"] ?? (isset($_SESSION["idusuario"]) ? "dashboard" : "login");
 
 if ($route === "login" && $_SERVER["REQUEST_METHOD"] === "POST") {
@@ -136,6 +138,17 @@ if (isset($ventaRoutes[$route])) {
 
 if (isset($clienteRoutes[$route])) {
     $clienteController->{$clienteRoutes[$route]}();
+    exit;
+}
+
+$inventarioRoutes = [
+    "module/inventario" => "index",
+    "module/inventario/crear" => "create",
+    "module/inventario/guardar" => "store"
+];
+
+if (isset($inventarioRoutes[$route])) {
+    $inventarioController->{$inventarioRoutes[$route]}();
     exit;
 }
 
