@@ -21,6 +21,7 @@ require __DIR__ . "/app/Controllers/PerfilController.php";
 require __DIR__ . "/app/Controllers/UsuarioController.php";
 require __DIR__ . "/app/Controllers/CategoriaController.php";
 require __DIR__ . "/app/Controllers/ProductoController.php";
+require __DIR__ . "/app/Controllers/TopProductosController.php";
 
 $db = Database::connect();
 $authController = new AuthController(new User($db));
@@ -30,6 +31,7 @@ $perfilController = new PerfilController(new Profile($db));
 $usuarioController = new UsuarioController(new User($db), new Profile($db));
 $categoriaController = new CategoriaController(new Category($db), new Profile($db));
 $productoController = new ProductoController(new Product($db), new Category($db), new Profile($db));
+$topProductosController = new TopProductosController();
 $route = $_GET["route"] ?? (isset($_SESSION["idusuario"]) ? "dashboard" : "login");
 
 if ($route === "login" && $_SERVER["REQUEST_METHOD"] === "POST") {
@@ -44,6 +46,11 @@ if ($route === "logout") {
 
 if ($route === "dashboard") {
     $dashboardController->index();
+    exit;
+}
+
+if ($route === "module/top-productos") {
+    $topProductosController->index();
     exit;
 }
 
