@@ -8,6 +8,75 @@ if (menuToggle) {
     });
 }
 
+const dashboardDataElement = document.querySelector("#dashboard-chart-data");
+if (dashboardDataElement) {
+    const dashboardData = JSON.parse(dashboardDataElement.textContent);
+    const formatSoles = (value) => `S/ ${Number(value).toLocaleString("es-PE", {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    const colors = {"Agotados":"#dc5a56", "Stock bajo":"#e6a23c", "Disponibles":"#159580"};
+    const salesCanvas = document.querySelector("#weekly-sales-chart");
+    const stockCanvas = document.querySelector("#stock-status-chart");
+
+    function prepareCanvas(canvas) {
+        const rect = canvas.getBoundingClientRect();
+        const ratio = window.devicePixelRatio || 1;
+        canvas.width = Math.max(1, rect.width * ratio); canvas.height = Math.max(1, rect.height * ratio);
+        const context = canvas.getContext("2d"); context.setTransform(ratio, 0, 0, ratio, 0, 0);
+        return {context, width:rect.width, height:rect.height};
+    }
+
+    function drawSales() {
+        const {context:ctx, width, height} = prepareCanvas(salesCanvas);
+        const data = dashboardData.sales;
+        const pad = {top:18, right:14, bottom:38, left:58};
+        const chartWidth = Math.max(1, width - pad.left - pad.right), chartHeight = Math.max(1, height - pad.top - pad.bottom);
+        const max = Math.max(1, ...data.map((item) => Number(item.total)));
+        const step = Math.pow(10, Math.floor(Math.log10(max)));
+        const ceiling = Math.ceil(max / step) * step;
+        ctx.clearRect(0, 0, width, height); ctx.font = "11px Arial"; ctx.textBaseline = "middle";
+        for (let tick = 0; tick <= 4; tick++) {
+            const value = ceiling * tick / 4, y = pad.top + chartHeight - chartHeight * tick / 4;
+            ctx.strokeStyle = "#e9eef4"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(width - pad.right, y); ctx.stroke();
+            ctx.fillStyle = "#7b8797"; ctx.textAlign = "right"; ctx.fillText(value >= 1000 ? `${(value / 1000).toFixed(value % 1000 ? 1 : 0)}k` : value.toFixed(0), pad.left - 9, y);
+        }
+        const slot = chartWidth / data.length, barWidth = Math.min(38, slot * .52);
+        data.forEach((item, index) => {
+            const value = Number(item.total), barHeight = chartHeight * value / ceiling;
+            const x = pad.left + slot * index + (slot - barWidth) / 2, y = pad.top + chartHeight - barHeight;
+            ctx.fillStyle = "#159580";
+            if (barHeight > 0) { ctx.beginPath(); ctx.roundRect(x, y, barWidth, Math.max(barHeight, 3), [5,5,0,0]); ctx.fill(); }
+            const [year, month, day] = item.fecha.split("-").map(Number);
+            const label = new Date(year, month - 1, day).toLocaleDateString("es-PE", {weekday:"short"}).replace(".", "");
+            ctx.fillStyle = "#64748b"; ctx.textAlign = "center"; ctx.fillText(label, x + barWidth / 2, height - 15);
+            salesCanvas.setAttribute("aria-label", `Ventas de los ultimos siete dias: ${data.map((entry) => `${entry.fecha}, ${formatSoles(entry.total)}`).join("; ")}`);
+        });
+        const accessible = document.querySelector("#weekly-sales-data");
+        accessible.innerHTML = `<ul>${data.map((item) => `<li>${item.fecha}: ${formatSoles(item.total)}</li>`).join("")}</ul>`;
+    }
+
+    function drawStock() {
+        const {context:ctx, width, height} = prepareCanvas(stockCanvas);
+        const entries = Object.entries(dashboardData.stock), total = entries.reduce((sum, [, value]) => sum + Number(value), 0);
+        const cx = width / 2, cy = height / 2, radius = Math.min(width, height) * .43, thickness = Math.max(14, radius * .24);
+        ctx.clearRect(0, 0, width, height); ctx.lineWidth = thickness; ctx.lineCap = "butt";
+        ctx.beginPath(); ctx.strokeStyle = "#eef2f6"; ctx.arc(cx, cy, radius - thickness / 2, 0, Math.PI * 2); ctx.stroke();
+        if (total) {
+            let start = -Math.PI / 2;
+            entries.forEach(([label, value]) => {
+                const angle = Math.PI * 2 * Number(value) / total;
+                if (angle > 0) { ctx.beginPath(); ctx.strokeStyle = colors[label]; ctx.arc(cx, cy, radius - thickness / 2, start, start + angle); ctx.stroke(); }
+                start += angle;
+            });
+        }
+        stockCanvas.setAttribute("aria-label", entries.map(([label, value]) => `${label}: ${value}`).join("; "));
+        document.querySelector("#stock-legend").innerHTML = entries.map(([label, value]) => `<li><span><i style="background:${colors[label]}"></i>${label}</span><strong>${Number(value)}</strong></li>`).join("");
+    }
+
+    const drawDashboardCharts = () => { drawSales(); drawStock(); };
+    drawDashboardCharts();
+    let resizeTimer;
+    window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(drawDashboardCharts, 120); });
+}
+
 const saleForm = document.querySelector("#sale-form");
 if (saleForm) {
     const products = JSON.parse(document.querySelector("#sale-products").textContent);
