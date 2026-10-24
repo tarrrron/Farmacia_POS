@@ -15,6 +15,9 @@
     <?php if ($message !== ""): ?>
         <div class="alert alert-success" role="status"><?= htmlspecialchars($message, ENT_QUOTES, "UTF-8") ?></div>
     <?php endif; ?>
+    <?php if ($error !== ""): ?>
+        <div class="alert alert-error" role="alert"><?= htmlspecialchars($error, ENT_QUOTES, "UTF-8") ?></div>
+    <?php endif; ?>
 
     <div class="table-wrap">
         <table class="data-table">
@@ -37,7 +40,12 @@
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, "UTF-8") ?>">
                                 <input type="hidden" name="id" value="<?= (int) $user["idusuario"] ?>">
                                 <input type="hidden" name="estado" value="<?= (int) $user["estado"] === 1 ? 0 : 1 ?>">
-                                <button class="btn <?= (int) $user["estado"] === 1 ? "btn-action-disable" : "btn-action-enable" ?> btn-sm" type="submit"><?= (int) $user["estado"] === 1 ? "Desactivar" : "Activar" ?></button>
+                                <?php if ((int) $user["estado"] === 1): ?>
+                                    <button class="btn btn-action-disable btn-sm" type="submit" name="accion" value="desactivar" onclick="return confirm('El usuario quedará inactivo temporalmente. ¿Continuar?')">Desactivar</button>
+                                    <button class="btn btn-action-delete btn-sm" type="submit" name="accion" value="eliminar" onclick="return confirm('El usuario quedará inactivo y conservará sus registros. ¿Continuar?')">Eliminar</button>
+                                <?php else: ?>
+                                    <button class="btn btn-action-enable btn-sm" type="submit" name="accion" value="activar">Activar</button>
+                                <?php endif; ?>
                             </form>
                         </td>
                     </tr>

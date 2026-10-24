@@ -15,6 +15,7 @@ class VentaController
         $menuOptions = $this->requireAccess("GET");
         $sales = $this->sales->all();
         $message = $_SESSION["venta_message"] ?? ""; unset($_SESSION["venta_message"]);
+        $error = $_SESSION["venta_error"] ?? ""; unset($_SESSION["venta_error"]);
         $csrfToken = $_SESSION["venta_csrf"];
         $view = __DIR__ . "/../Views/ventas/index.php";
         require __DIR__ . "/../Views/layout/app.php";
@@ -60,6 +61,30 @@ class VentaController
         $message = $_SESSION["venta_message"] ?? ""; unset($_SESSION["venta_message"]);
         $view = __DIR__ . "/../Views/ventas/show.php";
         require __DIR__ . "/../Views/layout/app.php";
+    }
+
+    public function cancel(): void
+    {
+        $this->requireAccess("POST");
+        $this->requireCsrf();
+        $id = filter_var($_POST["id"] ?? null, FILTER_VALIDATE_INT, ["options" => ["min_range" => 1]]);
+        if ($id === false) {
+            http_response_code(422);
+            exit("Venta no válida.");
+        }
+
+        try {
+            $this->sales->cancel($id, (int) $_SESSION["idusuario"]);
+            $_SESSION["venta_message"] = "Venta anulada; el stock de sus productos fue restituido.";
+        } catch (RuntimeException $exception) {
+            $_SESSION["venta_error"] = $exception->getMessage();
+        } catch (Throwable $exception) {
+            error_log($exception->getMessage());
+            $_SESSION["venta_error"] = "No se pudo anular la venta. Inténtalo nuevamente.";
+        }
+
+        header("Location: index.php?route=module/ventas", true, 303);
+        exit;
     }
 
     private function requireAccess(string $method): array

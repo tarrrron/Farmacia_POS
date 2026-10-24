@@ -8,6 +8,19 @@ if (menuToggle) {
     });
 }
 
+const productImageInput = document.querySelector("#imagen");
+const productImagePreview = document.querySelector("#product-image-preview");
+if (productImageInput && productImagePreview) {
+    let previewUrl = null;
+    productImageInput.addEventListener("change", () => {
+        const file = productImageInput.files?.[0];
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = file ? URL.createObjectURL(file) : null;
+        productImagePreview.src = previewUrl || productImagePreview.dataset.originalSrc || "";
+        productImagePreview.hidden = !previewUrl && !productImagePreview.dataset.originalSrc;
+    });
+}
+
 const dashboardDataElement = document.querySelector("#dashboard-chart-data");
 if (dashboardDataElement) {
     const dashboardData = JSON.parse(dashboardDataElement.textContent);
@@ -96,7 +109,10 @@ if (saleForm) {
         matches.forEach((product) => {
             const button = document.createElement("button");
             button.type = "button"; button.className = "sale-product-option"; button.setAttribute("role", "option");
-            button.innerHTML = `<span><strong>${escapeHtml(product.nombre)}</strong><small>${escapeHtml(product.codigobarra || product.unidad)} · Stock ${Number(product.stock)}</small></span><b>${money(product.pventa)}</b>`;
+            const image = product.urlimagen
+                ? `<img class="sale-product-image" src="${escapeHtml(product.urlimagen)}" alt="">`
+                : '<span class="sale-product-image-placeholder" aria-hidden="true">—</span>';
+            button.innerHTML = `${image}<span class="sale-product-copy"><strong>${escapeHtml(product.nombre)}</strong><small>${escapeHtml(product.codigobarra || product.unidad)} · Stock ${Number(product.stock)}</small></span><b>${money(product.pventa)}</b>`;
             button.addEventListener("click", () => addProduct(product)); results.append(button);
         });
     }
@@ -113,9 +129,12 @@ if (saleForm) {
         if (!cart.size) linesBody.innerHTML = '<tr><td class="empty-state" colspan="6">Busca y agrega productos a la venta.</td></tr>';
         cart.forEach(({product, cantidad}, id) => {
             const row = document.createElement("tr");
-            row.innerHTML = `<td><strong>${escapeHtml(product.nombre)}</strong><small>${escapeHtml(product.unidad)}</small><input type="hidden" name="items[${id}][id]" value="${id}"></td><td>${money(product.pventa)}</td><td>${Number(product.stock)}</td><td><input class="sale-quantity" type="number" name="items[${id}][cantidad]" value="${cantidad}" min="0.01" max="${Number(product.stock)}" step="0.01" aria-label="Cantidad de ${escapeHtml(product.nombre)}" required></td><td class="line-total">${money(Number(product.pventa) * Number(cantidad))}</td><td><button class="sale-remove" type="button" aria-label="Quitar ${escapeHtml(product.nombre)}">Quitar</button></td>`;
+            const availableUnits = Math.floor(Number(product.stock));
+            row.innerHTML = `<td><strong>${escapeHtml(product.nombre)}</strong><small>${escapeHtml(product.unidad)}</small><input type="hidden" name="items[${id}][id]" value="${id}"></td><td>${money(product.pventa)}</td><td>${Number(product.stock)}</td><td><input class="sale-quantity" type="number" name="items[${id}][cantidad]" value="${cantidad}" min="1" max="${availableUnits}" step="1" inputmode="numeric" aria-label="Cantidad de ${escapeHtml(product.nombre)}" required></td><td class="line-total">${money(Number(product.pventa) * Number(cantidad))}</td><td><button class="sale-remove" type="button" aria-label="Quitar ${escapeHtml(product.nombre)}">Quitar</button></td>`;
             const input = row.querySelector(".sale-quantity");
-            input.addEventListener("input", () => { const quantity = Number(input.value); if (!Number.isFinite(quantity) || quantity <= 0 || quantity > Number(product.stock)) return; cart.get(id).cantidad = quantity; row.querySelector(".line-total").textContent = money(Number(product.pventa) * quantity); updateTotal(); });
+            const applyQuantity = () => { const quantity = Number(input.value); if (!Number.isInteger(quantity) || quantity < 1 || quantity > availableUnits) return false; cart.get(id).cantidad = quantity; row.querySelector(".line-total").textContent = money(Number(product.pventa) * quantity); updateTotal(); return true; };
+            input.addEventListener("input", applyQuantity);
+            input.addEventListener("change", () => { if (!applyQuantity()) { input.value = String(cart.get(id).cantidad); } });
             row.querySelector(".sale-remove").addEventListener("click", () => { cart.delete(id); renderLines(); });
             linesBody.append(row);
         });
@@ -132,5 +151,5 @@ if (saleForm) {
 
     search.addEventListener("input", renderResults);
     document.addEventListener("click", (event) => { if (!results.contains(event.target) && event.target !== search) results.innerHTML = ""; });
-    saleForm.addEventListener("submit", (event) => { if (!cart.size || [...cart.values()].some(({product,cantidad}) => Number(cantidad) > Number(product.stock) || Number(cantidad) <= 0)) { event.preventDefault(); } });
+    saleForm.addEventListener("submit", (event) => { if (!cart.size || [...cart.values()].some(({product,cantidad}) => !Number.isInteger(Number(cantidad)) || Number(cantidad) > Math.floor(Number(product.stock)) || Number(cantidad) < 1)) { event.preventDefault(); } });
 }

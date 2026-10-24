@@ -49,7 +49,12 @@
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, "UTF-8") ?>">
                                 <input type="hidden" name="id" value="<?= (int) $client["idcliente"] ?>">
                                 <input type="hidden" name="estado" value="<?= (int) $client["estado"] === 1 ? 0 : 1 ?>">
-                                <button class="btn <?= (int) $client["estado"] === 1 ? "btn-action-disable" : "btn-action-enable" ?> btn-sm" type="submit"><?= (int) $client["estado"] === 1 ? "Desactivar" : "Activar" ?></button>
+                                <?php if ((int) $client["estado"] === 1): ?>
+                                    <button class="btn btn-action-disable btn-sm" type="submit" name="accion" value="desactivar" onclick="return confirm('El cliente quedará inactivo temporalmente. ¿Continuar?')">Desactivar</button>
+                                    <button class="btn btn-action-delete btn-sm" type="submit" name="accion" value="eliminar" onclick="return confirm('El cliente quedará inactivo y conservará su historial de ventas. ¿Continuar?')">Eliminar</button>
+                                <?php else: ?>
+                                    <button class="btn btn-action-enable btn-sm" type="submit" name="accion" value="activar">Activar</button>
+                                <?php endif; ?>
                             </form>
                         </td>
                     </tr>

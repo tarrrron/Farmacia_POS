@@ -15,7 +15,8 @@ class UsuarioController
         $menuOptions = $this->requireAccess("GET");
         $users = $this->users->all();
         $message = $_SESSION["usuario_message"] ?? "";
-        unset($_SESSION["usuario_message"]);
+        $error = $_SESSION["usuario_error"] ?? "";
+        unset($_SESSION["usuario_message"], $_SESSION["usuario_error"]);
         $csrfToken = $_SESSION["usuario_csrf"];
         $view = __DIR__ . "/../Views/usuarios/index.php";
         require __DIR__ . "/../Views/layout/app.php";
@@ -115,15 +116,27 @@ class UsuarioController
         $this->requireCsrf();
         $user = $this->requireUser($_POST["id"] ?? null);
         $status = $_POST["estado"] ?? null;
-        if (!in_array($status, ["0", "1"], true)) {
+        $action = $_POST["accion"] ?? ($status === "1" ? "activar" : "eliminar");
+        if (!in_array($status, ["0", "1"], true) ||
+            !in_array($action, ["activar", "desactivar", "eliminar"], true) ||
+            ($action === "activar" && $status !== "1") ||
+            ($action !== "activar" && $status !== "0")) {
             $this->fail(422, "Estado de usuario inválido.");
+        }
+        if ($status === "0" && (int) $user["idusuario"] === (int) ($_SESSION["idusuario"] ?? 0)) {
+            $this->fail(422, "No puedes eliminar el usuario con el que iniciaste sesión.");
         }
         try {
             $this->users->changeStatus((int) $user["idusuario"], (int) $status);
+        } catch (InvalidArgumentException $exception) {
+            $_SESSION["usuario_error"] = $exception->getMessage();
+            header("Location: index.php?route=module/usuarios", true, 303);
+            exit;
         } catch (PDOException $exception) {
             $this->fail(500, "No se pudo cambiar el estado del usuario. Inténtalo nuevamente.");
         }
-        $this->redirect($status === "1" ? "Usuario activado." : "Usuario desactivado.");
+        $message = $action === "activar" ? "Usuario activado." : ($action === "desactivar" ? "Usuario desactivado." : "Usuario eliminado y marcado como inactivo.");
+        $this->redirect($message);
     }
 
     private function requireUser($id): array

@@ -9,6 +9,8 @@
 
 public/assets/js/*.pdf
 imagenes/productos/IMG_*
+public/uploads/productos/*
+!public/uploads/productos/.gitkeep
 
 database/*.bak.sql
 database/*_backup.sql

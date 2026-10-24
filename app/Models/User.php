@@ -56,20 +56,25 @@ class User
 
     public function update(int $id, string $name, string $username, int $profileId, string $password = ""): void
     {
-        $statement = $this->db->prepare("SELECT 1 FROM perfil WHERE idperfil = :idperfil AND estado = 1");
-        $statement->execute(["idperfil" => $profileId]);
-        if (!$statement->fetchColumn()) {
-            throw new InvalidArgumentException("Selecciona un perfil activo válido.");
-        }
         $params = ["id" => $id, "nombre" => $name, "usuario" => $username, "idperfil" => $profileId];
         $passwordSql = "";
         if ($password !== "") {
             $passwordSql = ", clave = SHA1(:clave)";
             $params["clave"] = $password;
         }
-        $statement = $this->db->prepare("UPDATE usuario SET nombre = :nombre, usuario = :usuario,
-                                       idperfil = :idperfil" . $passwordSql . " WHERE idusuario = :id");
-        $statement->execute($params);
+        $this->db->beginTransaction();
+        try {
+            $this->lockActiveProfile($profileId);
+            $statement = $this->db->prepare("UPDATE usuario SET nombre = :nombre, usuario = :usuario,
+                                           idperfil = :idperfil" . $passwordSql . " WHERE idusuario = :id");
+            $statement->execute($params);
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
     }
 
     public function changeStatus(int $id, int $status): void
@@ -77,24 +82,63 @@ class User
         if (!in_array($status, [0, 1], true)) {
             throw new InvalidArgumentException("Estado de usuario inválido.");
         }
-        $statement = $this->db->prepare("UPDATE usuario SET estado = :estado WHERE idusuario = :id");
-        $statement->execute(["estado" => $status, "id" => $id]);
+
+        if ($status === 0) {
+            $statement = $this->db->prepare("UPDATE usuario SET estado = 0 WHERE idusuario = :id");
+            $statement->execute(["id" => $id]);
+            return;
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $userQuery = $this->db->prepare("SELECT idperfil FROM usuario WHERE idusuario = :id FOR UPDATE");
+            $userQuery->execute(["id" => $id]);
+            $profileId = $userQuery->fetchColumn();
+            if ($profileId === false) {
+                throw new InvalidArgumentException("El usuario ya no existe.");
+            }
+            $this->lockActiveProfile((int) $profileId);
+            $statement = $this->db->prepare("UPDATE usuario SET estado = 1 WHERE idusuario = :id");
+            $statement->execute(["id" => $id]);
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
     }
 
     public function create(string $name, string $username, string $password, int $profileId): int
     {
-        $statement = $this->db->prepare("INSERT INTO usuario (nombre, usuario, clave, idperfil, estado)
-                                       SELECT :nombre, :usuario, SHA1(:clave), idperfil, 1
-                                       FROM perfil WHERE idperfil = :idperfil AND estado = 1");
-        $statement->execute([
-            "nombre" => $name,
-            "usuario" => $username,
-            "clave" => $password,
-            "idperfil" => $profileId
-        ]);
-        if ($statement->rowCount() !== 1) {
+        $this->db->beginTransaction();
+        try {
+            $this->lockActiveProfile($profileId);
+            $statement = $this->db->prepare("INSERT INTO usuario (nombre, usuario, clave, idperfil, estado)
+                                           VALUES (:nombre, :usuario, SHA1(:clave), :idperfil, 1)");
+            $statement->execute([
+                "nombre" => $name,
+                "usuario" => $username,
+                "clave" => $password,
+                "idperfil" => $profileId
+            ]);
+            $id = (int) $this->db->lastInsertId();
+            $this->db->commit();
+            return $id;
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
+    }
+
+    private function lockActiveProfile(int $profileId): void
+    {
+        $statement = $this->db->prepare("SELECT idperfil FROM perfil WHERE idperfil = :idperfil AND estado = 1 FOR UPDATE");
+        $statement->execute(["idperfil" => $profileId]);
+        if ($statement->fetchColumn() === false) {
             throw new InvalidArgumentException("Selecciona un perfil activo válido.");
         }
-        return (int) $this->db->lastInsertId();
     }
 }

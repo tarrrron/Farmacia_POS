@@ -10,9 +10,12 @@ class Category
 
     public function all(): array
     {
-        return $this->db->query("SELECT idcategoria, nombre, estado, fecha_creacion
-                                FROM categoria
-                                ORDER BY idcategoria")->fetchAll(PDO::FETCH_ASSOC);
+        return $this->db->query("SELECT c.idcategoria, c.nombre, c.estado, c.fecha_creacion,
+                                       COUNT(p.idproducto) AS productos_asociados
+                                FROM categoria c
+                                LEFT JOIN producto p ON p.idcategoria = c.idcategoria
+                                GROUP BY c.idcategoria, c.nombre, c.estado, c.fecha_creacion
+                                ORDER BY c.idcategoria")->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function active(): array
@@ -74,12 +77,30 @@ class Category
             throw new InvalidArgumentException("Estado de categoria invalido.");
         }
 
-        $statement = $this->db->prepare("UPDATE categoria
-                                       SET estado = :estado
-                                       WHERE idcategoria = :id");
-        $statement->execute([
-            "estado" => $status,
-            "id" => $id
-        ]);
+        $this->db->beginTransaction();
+        try {
+            $lockCategory = $this->db->prepare("SELECT idcategoria FROM categoria WHERE idcategoria = :id FOR UPDATE");
+            $lockCategory->execute(["id" => $id]);
+            if (!$lockCategory->fetchColumn()) {
+                throw new DomainException("La categoría ya no existe.");
+            }
+
+            if ($status === 0) {
+                $linkedProduct = $this->db->prepare("SELECT idproducto FROM producto WHERE idcategoria = :id LIMIT 1 FOR UPDATE");
+                $linkedProduct->execute(["id" => $id]);
+                if ($linkedProduct->fetchColumn() !== false) {
+                    throw new DomainException("No se puede desactivar ni eliminar esta categoría porque todavía está asignada a uno o más productos. Reasigna esos productos primero.");
+                }
+            }
+
+            $statement = $this->db->prepare("UPDATE categoria SET estado = :estado WHERE idcategoria = :id");
+            $statement->execute(["estado" => $status, "id" => $id]);
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
     }
 }

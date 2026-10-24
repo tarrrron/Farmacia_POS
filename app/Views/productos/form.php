@@ -18,13 +18,23 @@
         <div class="alert alert-error" role="status">Faltan categorias, unidades o afectaciones activas para registrar productos.</div>
     <?php endif; ?>
 
-    <form class="form-stack" method="post" action="index.php?route=module/productos/<?= $editing ? 'actualizar' : 'guardar' ?>">
+    <form class="form-stack" method="post" enctype="multipart/form-data" action="index.php?route=module/productos/<?= $editing ? 'actualizar' : 'guardar' ?>">
         <?php if ($editing): ?>
             <input type="hidden" name="id" value="<?= (int) $product["idproducto"] ?>">
         <?php endif; ?>
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, "UTF-8") ?>">
 
         <div class="form-grid">
+            <div class="form-field product-image-field">
+                <label for="imagen">Imagen del producto</label>
+                <input id="imagen" name="imagen" type="file" accept="image/jpeg,image/png,image/webp">
+                <small>JPG, PNG o WEBP · máximo 5 MB. Opcional.</small>
+                <?php if (!empty($product["urlimagen"])): ?>
+                    <img class="product-image-preview" id="product-image-preview" src="<?= htmlspecialchars($product["urlimagen"], ENT_QUOTES, "UTF-8") ?>" data-original-src="<?= htmlspecialchars($product["urlimagen"], ENT_QUOTES, "UTF-8") ?>" alt="Imagen actual de <?= htmlspecialchars($product["nombre"], ENT_QUOTES, "UTF-8") ?>">
+                <?php else: ?>
+                    <img class="product-image-preview" id="product-image-preview" data-original-src="" alt="Vista previa de la imagen" hidden>
+                <?php endif; ?>
+            </div>
             <div class="form-field">
                 <label for="nombre">Nombre</label>
                 <input id="nombre" name="nombre" type="text" maxlength="150" required value="<?= htmlspecialchars($product["nombre"], ENT_QUOTES, "UTF-8") ?>">

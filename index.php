@@ -137,6 +137,7 @@ $ventaRoutes = [
     "vista/ventas.php" => "index",
     "module/ventas/crear" => "create",
     "module/ventas/guardar" => "store",
+    "module/ventas/anular" => "cancel",
     "module/ventas/ver" => "show"
 ];
 

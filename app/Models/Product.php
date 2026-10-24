@@ -10,7 +10,7 @@ class Product
 
     public function all(): array
     {
-        return $this->db->query("SELECT p.idproducto, p.nombre, p.codigobarra, p.pventa, p.pcompra,
+        return $this->db->query("SELECT p.idproducto, p.nombre, p.codigobarra, p.urlimagen, p.pventa, p.pcompra,
                                        p.stock, p.stockseguridad, p.estado,
                                        c.nombre AS categoria, u.descripcion AS unidad,
                                        a.descripcion AS afectacion
@@ -23,7 +23,7 @@ class Product
 
     public function findById(int $id): ?array
     {
-        $statement = $this->db->prepare("SELECT idproducto, nombre, codigobarra, pventa, pcompra,
+        $statement = $this->db->prepare("SELECT idproducto, nombre, codigobarra, urlimagen, pventa, pcompra,
                                                stock, stockseguridad, idunidad, idcategoria,
                                                idafectacion, estado
                                         FROM producto
@@ -85,15 +85,25 @@ class Product
 
     public function create(array $product): int
     {
-        $statement = $this->db->prepare("INSERT INTO producto
-            (nombre, codigobarra, pventa, pcompra, stock, stockseguridad,
-             idunidad, idcategoria, idafectacion, estado)
-            VALUES
-            (:nombre, :codigobarra, :pventa, :pcompra, :stock, :stockseguridad,
-             :idunidad, :idcategoria, :idafectacion, 1)");
-        $statement->execute($this->params($product));
-
-        return (int) $this->db->lastInsertId();
+        $this->db->beginTransaction();
+        try {
+            $this->lockActiveCategory((int) $product["idcategoria"]);
+            $statement = $this->db->prepare("INSERT INTO producto
+                (nombre, codigobarra, pventa, pcompra, stock, stockseguridad,
+                 idunidad, idcategoria, idafectacion, urlimagen, estado)
+                VALUES
+                (:nombre, :codigobarra, :pventa, :pcompra, :stock, :stockseguridad,
+                 :idunidad, :idcategoria, :idafectacion, :urlimagen, 1)");
+            $statement->execute($this->params($product));
+            $id = (int) $this->db->lastInsertId();
+            $this->db->commit();
+            return $id;
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
     }
 
     public function update(int $id, array $product): void
@@ -101,18 +111,29 @@ class Product
         $params = $this->params($product);
         $params["id"] = $id;
 
-        $statement = $this->db->prepare("UPDATE producto
-            SET nombre = :nombre,
-                codigobarra = :codigobarra,
-                pventa = :pventa,
-                pcompra = :pcompra,
-                stock = :stock,
-                stockseguridad = :stockseguridad,
-                idunidad = :idunidad,
-                idcategoria = :idcategoria,
-                idafectacion = :idafectacion
-            WHERE idproducto = :id");
-        $statement->execute($params);
+        $this->db->beginTransaction();
+        try {
+            $this->lockActiveCategory((int) $product["idcategoria"]);
+            $statement = $this->db->prepare("UPDATE producto
+                SET nombre = :nombre,
+                    codigobarra = :codigobarra,
+                    pventa = :pventa,
+                    pcompra = :pcompra,
+                    stock = :stock,
+                    stockseguridad = :stockseguridad,
+                    idunidad = :idunidad,
+                    idcategoria = :idcategoria,
+                    idafectacion = :idafectacion,
+                    urlimagen = :urlimagen
+                WHERE idproducto = :id");
+            $statement->execute($params);
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $exception;
+        }
     }
 
     public function changeStatus(int $id, int $status): void
@@ -141,8 +162,18 @@ class Product
             "stockseguridad" => $product["stockseguridad"],
             "idunidad" => $product["idunidad"],
             "idcategoria" => $product["idcategoria"],
-            "idafectacion" => $product["idafectacion"]
+            "idafectacion" => $product["idafectacion"],
+            "urlimagen" => $product["urlimagen"] ?? null
         ];
+    }
+
+    private function lockActiveCategory(int $categoryId): void
+    {
+        $statement = $this->db->prepare("SELECT idcategoria FROM categoria WHERE idcategoria = :id AND estado = 1 FOR UPDATE");
+        $statement->execute(["id" => $categoryId]);
+        if ($statement->fetchColumn() === false) {
+            throw new InvalidArgumentException("Selecciona una categoría activa para el producto.");
+        }
     }
 
    public function getTopProductos($mes = null) {
@@ -151,8 +182,10 @@ class Product
                 INNER JOIN detalle_venta d ON p.idproducto = d.idproducto 
                 INNER JOIN venta v ON d.idventa = v.idventa ";
         
+        $sql .= " WHERE v.estado = 1 AND d.estado = 1 ";
+
         if (!empty($mes)) {
-            $sql .= " WHERE MONTH(v.fecha) = :mes ";
+            $sql .= " AND MONTH(v.fecha) = :mes ";
         }
         
         $sql .= " GROUP BY p.idproducto 
