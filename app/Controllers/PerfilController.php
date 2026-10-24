@@ -13,7 +13,8 @@ class PerfilController
         $menuOptions = $this->requireAccess(["GET"]);
         $profiles = $this->profiles->all();
         $message = $_SESSION["perfil_message"] ?? "";
-        unset($_SESSION["perfil_message"]);
+        $error = $_SESSION["perfil_error"] ?? "";
+        unset($_SESSION["perfil_message"], $_SESSION["perfil_error"]);
         $csrfToken = $_SESSION["perfil_csrf"];
         $view = __DIR__ . "/../Views/perfiles/index.php";
         require __DIR__ . "/../Views/layout/app.php";
@@ -80,16 +81,25 @@ class PerfilController
         $this->requireCsrf();
         $profile = $this->requireProfile($_POST["id"] ?? null);
         $status = $_POST["estado"] ?? null;
-        if (!in_array($status, ["0", "1"], true)) {
+        $action = $_POST["accion"] ?? ($status === "1" ? "activar" : "eliminar");
+        if (!in_array($status, ["0", "1"], true) ||
+            !in_array($action, ["activar", "desactivar", "eliminar"], true) ||
+            ($action === "activar" && $status !== "1") ||
+            ($action !== "activar" && $status !== "0")) {
             $this->fail(422, "Estado de perfil inválido.");
         }
 
         try {
             $this->profiles->changeStatus((int) $profile["idperfil"], (int) $status);
+        } catch (DomainException $exception) {
+            $_SESSION["perfil_error"] = $exception->getMessage();
+            header("Location: index.php?route=module/perfiles", true, 303);
+            exit;
         } catch (PDOException $exception) {
             $this->fail(500, "No se pudo cambiar el estado del perfil. Inténtalo nuevamente.");
         }
-        $this->redirect($status === "1" ? "Perfil activado." : "Perfil desactivado.");
+        $message = $action === "activar" ? "Perfil activado." : ($action === "desactivar" ? "Perfil desactivado." : "Perfil eliminado y marcado como inactivo.");
+        $this->redirect($message);
     }
 
     private function requireAccess(array $methods): array

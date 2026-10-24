@@ -23,10 +23,10 @@ class Sale
 
     public function catalog(): array
     {
-        return $this->db->query("SELECT p.idproducto, p.nombre, p.codigobarra, p.pventa, p.stock,
+        return $this->db->query("SELECT p.idproducto, p.nombre, p.codigobarra, p.urlimagen, p.pventa, p.stock,
                                        u.descripcion AS unidad
                                 FROM producto p INNER JOIN unidad u ON u.idunidad = p.idunidad
-                                WHERE p.estado = 1 AND p.stock > 0 ORDER BY p.nombre")->fetchAll(PDO::FETCH_ASSOC);
+                                WHERE p.estado = 1 AND p.stock >= 1 ORDER BY p.nombre")->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function clients(): array
@@ -55,6 +55,76 @@ class Sale
         $statement->execute(["id" => $id]);
         $sale["detalles"] = $statement->fetchAll(PDO::FETCH_ASSOC);
         return $sale;
+    }
+
+    public function cancel(int $id, int $userId): void
+    {
+        $this->db->beginTransaction();
+        try {
+            $saleQuery = $this->db->prepare("SELECT idventa, serie, correlativo, estado
+                                             FROM venta WHERE idventa = :id FOR UPDATE");
+            $saleQuery->execute(["id" => $id]);
+            $sale = $saleQuery->fetch(PDO::FETCH_ASSOC);
+            if (!$sale || (int) $sale["estado"] !== 1) {
+                throw new RuntimeException("La venta no existe o ya fue anulada.");
+            }
+
+            $detailQuery = $this->db->prepare("SELECT idproducto, cantidad FROM detalle_venta
+                                               WHERE idventa = :id AND estado = 1
+                                               ORDER BY idproducto, iddetalle FOR UPDATE");
+            $detailQuery->execute(["id" => $id]);
+            $asCents = static function ($value): int {
+                [$whole, $fraction] = array_pad(explode(".", (string) $value, 2), 2, "0");
+                return ((int) $whole * 100) + (int) str_pad(substr($fraction, 0, 2), 2, "0");
+            };
+            $quantities = [];
+            foreach ($detailQuery->fetchAll(PDO::FETCH_ASSOC) as $line) {
+                $productId = (int) $line["idproducto"];
+                $quantities[$productId] = ($quantities[$productId] ?? 0) + $asCents($line["cantidad"]);
+            }
+            ksort($quantities, SORT_NUMERIC);
+
+            $productQuery = $this->db->prepare("SELECT nombre, stock FROM producto WHERE idproducto = :id FOR UPDATE");
+            $productUpdate = $this->db->prepare("UPDATE producto SET stock = :stock WHERE idproducto = :id");
+            $movementInsert = $this->db->prepare("INSERT INTO movimiento_inventario
+                (idproducto, idusuario, tipo, cantidad, stock_anterior, stock_nuevo, motivo)
+                VALUES (:producto, :usuario, 'ENTRADA', :cantidad, :anterior, :nuevo, :motivo)");
+            $invoice = ($sale["serie"] ?? "") . "-" . str_pad((string) ($sale["correlativo"] ?? ""), 8, "0", STR_PAD_LEFT);
+            $formatCents = static fn(int $cents): string => intdiv($cents, 100) . "." . str_pad((string) ($cents % 100), 2, "0", STR_PAD_LEFT);
+
+            foreach ($quantities as $productId => $quantityCents) {
+                $productQuery->execute(["id" => $productId]);
+                $product = $productQuery->fetch(PDO::FETCH_ASSOC);
+                if (!$product) {
+                    throw new RuntimeException("No se encontró un producto de la venta para restituir su stock.");
+                }
+                $previousCents = $asCents($product["stock"]);
+                $newCents = $previousCents + $quantityCents;
+                if ($newCents > 99999999999) {
+                    throw new RuntimeException("No se pudo restituir el stock porque superaría el límite del producto " . $product["nombre"] . ".");
+                }
+                $productUpdate->execute(["stock" => $formatCents($newCents), "id" => $productId]);
+                $movementInsert->execute([
+                    "producto" => $productId,
+                    "usuario" => $userId,
+                    "cantidad" => $formatCents($quantityCents),
+                    "anterior" => $formatCents($previousCents),
+                    "nuevo" => $formatCents($newCents),
+                    "motivo" => "Anulación de venta " . $invoice
+                ]);
+            }
+
+            $detailsUpdate = $this->db->prepare("UPDATE detalle_venta SET estado = 0 WHERE idventa = :id");
+            $detailsUpdate->execute(["id" => $id]);
+            $saleUpdate = $this->db->prepare("UPDATE venta SET estado = 0 WHERE idventa = :id");
+            $saleUpdate->execute(["id" => $id]);
+            $this->db->commit();
+        } catch (Throwable $error) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $error;
+        }
     }
 
     public function create(array $sale, array $items, int $userId): int
@@ -89,7 +159,7 @@ class Sale
                 if (!is_array($item)) throw new RuntimeException("Revisa los productos y cantidades de la venta.");
                 $id = filter_var($item["id"] ?? null, FILTER_VALIDATE_INT, ["options" => ["min_range" => 1]]);
                 $quantity = filter_var($item["cantidad"] ?? null, FILTER_VALIDATE_FLOAT);
-                if ($id === false || $quantity === false || $quantity <= 0 || $quantity > 100000 || abs($quantity - round($quantity, 2)) > 0.000001) throw new RuntimeException("Revisa los productos y cantidades de la venta.");
+                if ($id === false || $quantity === false || $quantity <= 0 || $quantity > 100000 || abs($quantity - round($quantity)) > 0.000001) throw new RuntimeException("La cantidad de cada producto debe ser un número entero mayor a cero.");
                 $quantities[$id] = ($quantities[$id] ?? 0) + $quantity;
             }
             ksort($quantities, SORT_NUMERIC);

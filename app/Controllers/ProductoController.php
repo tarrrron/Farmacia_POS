@@ -51,13 +51,18 @@ class ProductoController
         $this->requireCsrf();
         $product = $this->requireProduct($_POST["id"] ?? null);
         $status = $_POST["estado"] ?? null;
+        $action = $_POST["accion"] ?? ($status === "1" ? "activar" : "eliminar");
 
-        if (!in_array($status, ["0", "1"], true)) {
+        if (!in_array($status, ["0", "1"], true) ||
+            !in_array($action, ["activar", "desactivar", "eliminar"], true) ||
+            ($action === "activar" && $status !== "1") ||
+            ($action !== "activar" && $status !== "0")) {
             $this->fail(422, "Estado de producto invalido.");
         }
 
         $this->products->changeStatus((int) $product["idproducto"], (int) $status);
-        $this->redirect($status === "1" ? "Producto activado." : "Producto desactivado.");
+        $message = $action === "activar" ? "Producto activado." : ($action === "desactivar" ? "Producto desactivado." : "Producto eliminado y marcado como inactivo.");
+        $this->redirect($message);
     }
 
     private function save(bool $editing): void
@@ -67,15 +72,36 @@ class ProductoController
 
         $product = $editing ? $this->requireProduct($_POST["id"] ?? null) : $this->emptyProduct();
         $product = array_merge($product, $this->productFromPost());
+        $existingImagePath = $product["urlimagen"] ?? null;
         $errors = $this->validate($product, $editing ? (int) $product["idproducto"] : 0);
 
+        $imagePath = null;
         if (!$errors) {
-            if ($editing) {
-                $this->products->update((int) $product["idproducto"], $product);
-            } else {
-                $this->products->create($product);
+            try {
+                $imagePath = $this->storeImage($_FILES["imagen"] ?? null);
+                if ($imagePath !== null) {
+                    $product["urlimagen"] = $imagePath;
+                }
+            } catch (InvalidArgumentException $exception) {
+                $errors[] = $exception->getMessage();
             }
-            $this->redirect($editing ? "Producto actualizado." : "Producto registrado.");
+        }
+
+        if (!$errors) {
+            try {
+                if ($editing) {
+                    $this->products->update((int) $product["idproducto"], $product);
+                } else {
+                    $this->products->create($product);
+                }
+                $this->redirect($editing ? "Producto actualizado." : "Producto registrado.");
+            } catch (InvalidArgumentException $exception) {
+                if ($imagePath !== null) {
+                    @unlink(dirname(__DIR__, 2) . "/" . $imagePath);
+                    $product["urlimagen"] = $existingImagePath;
+                }
+                $errors[] = $exception->getMessage();
+            }
         }
 
         http_response_code(422);
@@ -108,6 +134,40 @@ class ProductoController
         ];
     }
 
+    private function storeImage(?array $file): ?string
+    {
+        if ($file === null || ($file["error"] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return null;
+        }
+
+        if (($file["error"] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK || !is_uploaded_file($file["tmp_name"] ?? "")) {
+            throw new InvalidArgumentException("No se pudo recibir la imagen. Inténtalo nuevamente.");
+        }
+
+        if ((int) ($file["size"] ?? 0) > 5 * 1024 * 1024) {
+            throw new InvalidArgumentException("La imagen no puede superar los 5 MB.");
+        }
+
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file["tmp_name"]);
+        $extensions = ["image/jpeg" => "jpg", "image/png" => "png", "image/webp" => "webp"];
+        if (!isset($extensions[$mime]) || @getimagesize($file["tmp_name"]) === false) {
+            throw new InvalidArgumentException("Usa una imagen JPG, PNG o WEBP válida.");
+        }
+
+        $relativeDirectory = "public/uploads/productos";
+        $directory = dirname(__DIR__, 2) . "/" . $relativeDirectory;
+        if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
+            throw new InvalidArgumentException("No se pudo preparar la carpeta para guardar imágenes.");
+        }
+
+        $filename = bin2hex(random_bytes(16)) . "." . $extensions[$mime];
+        if (!move_uploaded_file($file["tmp_name"], $directory . "/" . $filename)) {
+            throw new InvalidArgumentException("No se pudo guardar la imagen del producto.");
+        }
+
+        return $relativeDirectory . "/" . $filename;
+    }
+
     private function validate(array $product, int $excludeId): array
     {
         $errors = [];
@@ -138,6 +198,12 @@ class ProductoController
             }
         }
 
+        $categoryId = filter_var($product["idcategoria"], FILTER_VALIDATE_INT, ["options" => ["min_range" => 1]]);
+        $category = $categoryId !== false ? $this->categories->findById($categoryId) : null;
+        if (!$category || (int) $category["estado"] !== 1) {
+            $errors[] = "Selecciona una categoría activa para el producto.";
+        }
+
         return $errors;
     }
 
@@ -164,7 +230,8 @@ class ProductoController
             "stockseguridad" => "0.00",
             "idunidad" => "",
             "idcategoria" => "",
-            "idafectacion" => "1"
+            "idafectacion" => "1",
+            "urlimagen" => null
         ];
     }
 

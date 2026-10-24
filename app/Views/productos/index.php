@@ -20,6 +20,7 @@
         <table class="data-table product-table">
             <thead>
                 <tr>
+                    <th scope="col">Imagen</th>
                     <th scope="col">Producto</th>
                     <th scope="col">Categoria</th>
                     <th scope="col">Precio</th>
@@ -30,10 +31,17 @@
             </thead>
             <tbody>
                 <?php if (!$products): ?>
-                    <tr><td class="empty-state" colspan="6">No hay productos registrados.</td></tr>
+                    <tr><td class="empty-state" colspan="7">No hay productos registrados.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($products as $product): ?>
                     <tr>
+                        <td>
+                            <?php if (!empty($product["urlimagen"])): ?>
+                                <img class="product-table-image" src="<?= htmlspecialchars($product["urlimagen"], ENT_QUOTES, "UTF-8") ?>" alt="" loading="lazy">
+                            <?php else: ?>
+                                <span class="product-table-image-placeholder" aria-label="Sin imagen">—</span>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <strong><?= htmlspecialchars($product["nombre"], ENT_QUOTES, "UTF-8") ?></strong>
                             <small><?= htmlspecialchars($product["codigobarra"] ?: "Sin codigo", ENT_QUOTES, "UTF-8") ?></small>
@@ -51,7 +59,12 @@
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, "UTF-8") ?>">
                                 <input type="hidden" name="id" value="<?= (int) $product["idproducto"] ?>">
                                 <input type="hidden" name="estado" value="<?= (int) $product["estado"] === 1 ? 0 : 1 ?>">
-                                <button class="btn <?= (int) $product["estado"] === 1 ? "btn-action-disable" : "btn-action-enable" ?> btn-sm" type="submit"><?= (int) $product["estado"] === 1 ? "Desactivar" : "Activar" ?></button>
+                                <?php if ((int) $product["estado"] === 1): ?>
+                                    <button class="btn btn-action-disable btn-sm" type="submit" name="accion" value="desactivar" onclick="return confirm('El producto quedará inactivo temporalmente. ¿Continuar?')">Desactivar</button>
+                                    <button class="btn btn-action-delete btn-sm" type="submit" name="accion" value="eliminar" onclick="return confirm('El producto quedará inactivo y conservará su historial. ¿Continuar?')">Eliminar</button>
+                                <?php else: ?>
+                                    <button class="btn btn-action-enable btn-sm" type="submit" name="accion" value="activar">Activar</button>
+                                <?php endif; ?>
                             </form>
                         </td>
                     </tr>

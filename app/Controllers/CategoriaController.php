@@ -15,7 +15,8 @@ class CategoriaController
         $menuOptions = $this->requireAccess("GET");
         $categories = $this->categories->all();
         $message = $_SESSION["categoria_message"] ?? "";
-        unset($_SESSION["categoria_message"]);
+        $error = $_SESSION["categoria_error"] ?? "";
+        unset($_SESSION["categoria_message"], $_SESSION["categoria_error"]);
         $csrfToken = $_SESSION["categoria_csrf"];
         $view = __DIR__ . "/../Views/categorias/index.php";
         require __DIR__ . "/../Views/layout/app.php";
@@ -49,13 +50,24 @@ class CategoriaController
         $this->requireCsrf();
         $category = $this->requireCategory($_POST["id"] ?? null);
         $status = $_POST["estado"] ?? null;
+        $action = $_POST["accion"] ?? ($status === "1" ? "activar" : "eliminar");
 
-        if (!in_array($status, ["0", "1"], true)) {
+        if (!in_array($status, ["0", "1"], true) ||
+            !in_array($action, ["activar", "desactivar", "eliminar"], true) ||
+            ($action === "activar" && $status !== "1") ||
+            ($action !== "activar" && $status !== "0")) {
             $this->fail(422, "Estado de categoria invalido.");
         }
 
-        $this->categories->changeStatus((int) $category["idcategoria"], (int) $status);
-        $this->redirect($status === "1" ? "Categoria activada." : "Categoria desactivada.");
+        try {
+            $this->categories->changeStatus((int) $category["idcategoria"], (int) $status);
+        } catch (DomainException $exception) {
+            $_SESSION["categoria_error"] = $exception->getMessage();
+            header("Location: index.php?route=module/categorias", true, 303);
+            exit;
+        }
+        $message = $action === "activar" ? "Categoría activada." : ($action === "desactivar" ? "Categoría desactivada." : "Categoría eliminada y marcada como inactiva.");
+        $this->redirect($message);
     }
 
     private function save(bool $editing): void

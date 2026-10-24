@@ -49,13 +49,18 @@ class ClienteController
         $this->requireCsrf();
         $client = $this->requireClient($_POST["id"] ?? null);
         $status = $_POST["estado"] ?? null;
+        $action = $_POST["accion"] ?? ($status === "1" ? "activar" : "eliminar");
 
-        if (!in_array($status, ["0", "1"], true)) {
+        if (!in_array($status, ["0", "1"], true) ||
+            !in_array($action, ["activar", "desactivar", "eliminar"], true) ||
+            ($action === "activar" && $status !== "1") ||
+            ($action !== "activar" && $status !== "0")) {
             $this->fail(422, "Estado de cliente invalido.");
         }
 
         $this->clients->changeStatus((int) $client["idcliente"], (int) $status);
-        $this->redirect($status === "1" ? "Cliente activado." : "Cliente desactivado.");
+        $message = $action === "activar" ? "Cliente activado." : ($action === "desactivar" ? "Cliente desactivado." : "Cliente eliminado y marcado como inactivo.");
+        $this->redirect($message);
     }
 
     private function save(bool $editing): void
