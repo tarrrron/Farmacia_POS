@@ -273,7 +273,8 @@ INSERT INTO `opcion` (`idopcion`, `descripcion`, `url`, `icono`, `estado`) VALUE
 (5, 'Clientes', 'module/clientes', 'fa-address-book', 1),
 (6, 'Ventas', 'module/ventas', 'fa-shopping-cart', 1),
 (7, 'Inventario', 'module/inventario', 'mdi mdi-warehouse', 1),
-(8, 'Top productos', 'module/top-productos', 'mdi mdi-chart-bar', 1);
+(8, 'Top productos', 'module/top-productos', 'mdi mdi-chart-bar', 1),
+(9, 'Creditos', 'module/creditos', 'fa-credit-card', 1);
 
 INSERT INTO `acceso` (`idperfil`, `idopcion`, `estado`) VALUES
 (1, 1, 1),
@@ -287,7 +288,9 @@ INSERT INTO `acceso` (`idperfil`, `idopcion`, `estado`) VALUES
 (2, 3, 1),
 (2, 5, 1),
 (2, 6, 1),
-(2, 7, 1);
+(2, 7, 1),
+(1, 9, 1),
+(2, 9, 1);
 
 INSERT INTO `tipodocumento` (`idtipodocumento`, `nombre`, `estado`) VALUES
 (1, 'DNI', 1),
