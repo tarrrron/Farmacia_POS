@@ -155,7 +155,9 @@ if (isset($clienteRoutes[$route])) {
 }
 
 $creditoRoutes = [
-    "module/creditos" => "index"
+    "module/creditos" => "index",
+    "module/creditos/ver" => "show",
+    "module/creditos/pagar" => "pay"
 ];
 
 if (isset($creditoRoutes[$route])) {

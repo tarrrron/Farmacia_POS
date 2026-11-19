@@ -72,6 +72,7 @@
                         <td><strong>S/ <?= number_format((float) $credit["saldo"], 2) ?></strong></td>
                         <td><span class="status-badge <?= $badge[0] ?>"><?= $badge[1] ?></span></td>
                         <td class="action-cell">
+                            <a class="btn btn-action-edit btn-sm" href="index.php?route=module/creditos/ver&amp;id=<?= (int) $credit["idcredito"] ?>"><?= (int) $credit["estado"] === 1 ? "Pagos" : "Detalle" ?></a>
                             <a class="btn btn-light btn-sm" href="index.php?route=module/ventas/ver&amp;id=<?= (int) $credit["idventa"] ?>">Ver venta</a>
                         </td>
                     </tr>
