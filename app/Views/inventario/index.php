@@ -5,7 +5,7 @@ $e = static fn($value) =>
 ?>
 
 <div class="page-title">
-    <h1>Gestion de inventario</h1>
+    <h1>Gestión de inventario</h1>
     <p>Control de existencias, entradas y salidas de productos.</p>
 </div>
 
@@ -55,18 +55,19 @@ $e = static fn($value) =>
     <div class="section-toolbar">
         <div>
             <h2>Existencias de productos</h2>
-            <p>Consulta el stock disponible y el minimo.</p>
+            <p>Consulta el stock disponible y el mínimo.</p>
         </div>
     </div>
 
+    <input class="table-filter" type="search" data-filter-target="#inventario-table-1" placeholder="Buscar productos..." aria-label="Buscar productos">
     <div class="table-wrap">
-        <table class="data-table product-table">
+        <table class="data-table product-table" id="inventario-table-1">
             <thead>
                 <tr>
                     <th>Producto</th>
-                    <th>Categoria</th>
+                    <th>Categoría</th>
                     <th>Stock actual</th>
-                    <th>Stock minimo</th>
+                    <th>Stock mínimo</th>
                     <th>Estado de stock</th>
                 </tr>
             </thead>
@@ -104,7 +105,7 @@ $e = static fn($value) =>
                         <td>
                             <strong><?= $e($product["nombre"]) ?></strong>
                             <small>
-                                <?= $e($product["codigobarra"] ?: "Sin codigo") ?>
+                                <?= $e($product["codigobarra"] ?: "Sin código") ?>
                             </small>
                         </td>
 
@@ -133,12 +134,13 @@ $e = static fn($value) =>
     <div class="section-toolbar">
         <div>
             <h2>Historial de movimientos</h2>
-            <p>Ultimos 100 movimientos registrados.</p>
+            <p>Últimos 100 movimientos registrados.</p>
         </div>
     </div>
 
+    <input class="table-filter" type="search" data-filter-target="#inventario-table-2" placeholder="Buscar movimientos..." aria-label="Buscar movimientos">
     <div class="table-wrap">
-        <table class="data-table">
+        <table class="data-table" id="inventario-table-2">
             <thead>
                 <tr>
                     <th>Fecha</th>

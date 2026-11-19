@@ -65,6 +65,21 @@ class Dashboard
                                 WHERE v.estado = 1 ORDER BY v.fecha DESC, v.idventa DESC LIMIT 5")->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function creditAlerts(): array
+    {
+        $row = $this->db->query("SELECT
+                                    COUNT(CASE WHEN fecha_vencimiento < CURDATE() THEN 1 END) AS vencidos,
+                                    COALESCE(SUM(CASE WHEN fecha_vencimiento < CURDATE() THEN saldo END), 0) AS monto_vencido,
+                                    COUNT(CASE WHEN fecha_vencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) THEN 1 END) AS por_vencer
+                                 FROM credito WHERE estado = 1")->fetch(PDO::FETCH_ASSOC);
+
+        return [
+            "vencidos" => (int) ($row["vencidos"] ?? 0),
+            "monto_vencido" => (float) ($row["monto_vencido"] ?? 0),
+            "por_vencer" => (int) ($row["por_vencer"] ?? 0)
+        ];
+    }
+
     private function sumSales(string $where): float
     {
         $statement = $this->db->query("SELECT COALESCE(SUM(total), 0) AS total FROM venta WHERE estado = 1 AND $where");

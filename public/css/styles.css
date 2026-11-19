@@ -927,3 +927,45 @@ footer { color: #89968f; }
     .period-filter select { width: 100%; }
     .panel { padding: 17px; }
 }
+
+/* Mejoras varias: buscadores, ventas, créditos e impresión */
+[hidden] { display: none !important; }
+.logout-form { margin: 0; }
+.logout-form .logout-link { border: 0; background: none; padding: 0; font: inherit; font-size: 14px; cursor: pointer; }
+.table-filter { width: 100%; max-width: 420px; min-height: 40px; margin: 0 0 14px; }
+.list-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.list-tools .table-filter { margin: 0; }
+.date-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.date-filter label { margin: 0; }
+.date-filter input { min-height: 38px; }
+.list-summary { margin: 0 0 12px; color: var(--farmacia-muted); }
+.alert-warning { background: #fff6e5; color: #8a5a12; border: 1px solid #f3dfb5; }
+.credit-alert { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 18px; }
+.text-danger { color: #a74b40 !important; }
+.client-debt { margin: 8px 0 0; padding: 8px 10px; border-radius: 5px; background: #eef5f2; color: var(--farmacia-green-dark); font-size: 13px; }
+.client-debt.is-overdue { background: #fbe8e5; color: #a74b40; }
+.quick-days { display: flex; gap: 6px; margin: 6px 0 8px; }
+.sale-change { margin: 8px 0 0; font-weight: 700; color: var(--farmacia-green-dark); }
+.sale-change.is-short { color: #a74b40; }
+.toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.credit-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.input-with-action { display: flex; gap: 8px; align-items: center; }
+.input-with-action input { flex: 1; }
+.data-table tr.is-cancelled td { color: #94a3b8; }
+.data-table tr.is-cancelled td strong { text-decoration: line-through; }
+.payment-receipt { max-width: 640px; }
+.receipt-header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.receipt-header h2 { margin: 0; }
+.receipt-header p { margin: 2px 0 0; color: var(--farmacia-muted); }
+.receipt-data { display: grid; grid-template-columns: 170px 1fr; gap: 8px 16px; margin: 0 0 18px; }
+.receipt-data dt { color: var(--farmacia-muted); }
+.receipt-data dd { margin: 0; }
+
+@media print {
+    .topbar, .sidebar, .no-print, .btn, .table-filter, .list-tools, .alert-success { display: none !important; }
+    .layout, .contenido, main { display: block !important; margin: 0 !important; padding: 0 !important; }
+    body, .app-body { background: #fff !important; }
+    .panel { box-shadow: none !important; border: 0 !important; }
+    .data-table { font-size: 11px; }
+    a { color: inherit !important; text-decoration: none !important; }
+}

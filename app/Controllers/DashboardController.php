@@ -19,6 +19,7 @@ class DashboardController
         $stockStatus = $this->dashboard->stockStatus();
         $lowStockProducts = $this->dashboard->lowStockProducts();
         $recentSales = $this->dashboard->recentSales();
+        $creditAlerts = $this->dashboard->creditAlerts();
         $menuOptions = $this->profiles->menuOptions((int) $_SESSION["idperfil"]);
         $view = __DIR__ . "/../Views/dashboard/index.php";
 

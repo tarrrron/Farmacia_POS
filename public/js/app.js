@@ -141,15 +141,163 @@ if (saleForm) {
         updateTotal();
     }
 
+    const payment = document.querySelector("#sale-payment");
+    const creditFields = document.querySelector("#sale-credit-fields");
+    const cashFields = document.querySelector("#sale-cash-fields");
+    const dueDate = document.querySelector("#sale-due-date");
+    const received = document.querySelector("#sale-received");
+    const changeBox = document.querySelector("#sale-change");
+    const clientSelect = document.querySelector("#sale-client");
+    const clientDebt = document.querySelector("#client-debt");
+    let saleTotal = 0;
+
+    function currentTotal() {
+        let total = 0;
+        cart.forEach(({product, cantidad}) => { total += Number(product.pventa) * Number(cantidad); });
+        return Math.round(total * 100) / 100;
+    }
+
+    function updateChange() {
+        const value = received.value.trim();
+        if (payment.value !== "C" || value === "" || !cart.size) { changeBox.hidden = true; return true; }
+        const amount = Number(value);
+        changeBox.hidden = false;
+        if (!Number.isFinite(amount) || amount < saleTotal) {
+            changeBox.className = "sale-change is-short";
+            changeBox.textContent = `Faltan ${money(Math.max(0, saleTotal - (Number.isFinite(amount) ? amount : 0)))}`;
+            return false;
+        }
+        changeBox.className = "sale-change";
+        changeBox.textContent = `Vuelto: ${money(amount - saleTotal)}`;
+        return true;
+    }
+
+    function updateClientDebt() {
+        const option = clientSelect.selectedOptions[0];
+        const debt = Number(option?.dataset.deuda || 0), overdue = Number(option?.dataset.vencida || 0);
+        if (!clientSelect.value || debt <= 0) { clientDebt.hidden = true; return; }
+        clientDebt.hidden = false;
+        clientDebt.className = overdue > 0 ? "client-debt is-overdue" : "client-debt";
+        clientDebt.textContent = overdue > 0
+            ? `Deuda pendiente: ${money(debt)} (vencido: ${money(overdue)}). No se le puede vender a crédito.`
+            : `Deuda pendiente: ${money(debt)}.`;
+    }
+
+    function togglePayment() {
+        const isCredit = payment.value === "R";
+        creditFields.hidden = !isCredit;
+        dueDate.disabled = !isCredit;
+        cashFields.hidden = isCredit;
+        updateChange();
+    }
+
     function updateTotal() {
-        let total = 0; let quantity = 0;
-        cart.forEach(({product, cantidad}) => { total += Number(product.pventa) * Number(cantidad); quantity += Number(cantidad); });
-        document.querySelector("#sale-total").textContent = money(total);
+        let quantity = 0;
+        cart.forEach(({cantidad}) => { quantity += Number(cantidad); });
+        saleTotal = currentTotal();
+        document.querySelector("#sale-total").textContent = money(saleTotal);
         document.querySelector("#sale-count").textContent = `${quantity} ${quantity === 1 ? "producto" : "productos"}`;
         document.querySelector("#sale-submit").disabled = cart.size === 0;
+        updateChange();
     }
+
+    // Enter en el buscador agrega el producto (lectores de código de barras) y nunca envía la venta.
+    search.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        const query = search.value.trim().toLocaleLowerCase("es");
+        if (!query) return;
+        const exact = products.find((product) => (product.codigobarra || "").toLocaleLowerCase("es") === query);
+        const matches = products.filter((product) => product.nombre.toLocaleLowerCase("es").includes(query) || (product.codigobarra || "").toLocaleLowerCase("es").includes(query));
+        if (exact) addProduct(exact);
+        else if (matches.length === 1) addProduct(matches[0]);
+    });
+    saleForm.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && event.target.tagName === "INPUT") event.preventDefault();
+    });
+    payment.addEventListener("change", togglePayment);
+    received.addEventListener("input", updateChange);
+    clientSelect.addEventListener("change", updateClientDebt);
+    document.querySelectorAll("[data-days]").forEach((button) => button.addEventListener("click", () => {
+        const date = new Date(); date.setDate(date.getDate() + Number(button.dataset.days));
+        dueDate.value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    }));
+    togglePayment(); updateClientDebt();
 
     search.addEventListener("input", renderResults);
     document.addEventListener("click", (event) => { if (!results.contains(event.target) && event.target !== search) results.innerHTML = ""; });
-    saleForm.addEventListener("submit", (event) => { if (!cart.size || [...cart.values()].some(({product,cantidad}) => !Number.isInteger(Number(cantidad)) || Number(cantidad) > Math.floor(Number(product.stock)) || Number(cantidad) < 1)) { event.preventDefault(); } });
+    saleForm.addEventListener("submit", (event) => { if (!updateChange()) { event.preventDefault(); received.focus(); return; } if (!cart.size || [...cart.values()].some(({product,cantidad}) => !Number.isInteger(Number(cantidad)) || Number(cantidad) > Math.floor(Number(product.stock)) || Number(cantidad) < 1)) { event.preventDefault(); } });
+}
+
+
+// Buscador rápido en listados: filtra las filas de la tabla indicada en data-filter-target.
+document.querySelectorAll(".table-filter").forEach((input) => {
+    const table = document.querySelector(input.dataset.filterTarget);
+    if (!table) return;
+    const normalize = (value) => value.toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    let emptyRow = null;
+    input.addEventListener("input", () => {
+        const query = normalize(input.value.trim());
+        let visible = 0;
+        table.querySelectorAll("tbody tr").forEach((row) => {
+            if (row === emptyRow || row.querySelector(".empty-state")) return;
+            const show = !query || normalize(row.textContent).includes(query);
+            row.hidden = !show;
+            if (show) visible++;
+        });
+        if (!emptyRow) {
+            emptyRow = document.createElement("tr");
+            emptyRow.innerHTML = `<td class="empty-state" colspan="${table.querySelectorAll("thead th").length}">No hay resultados para la búsqueda.</td>`;
+            table.querySelector("tbody").append(emptyRow);
+        }
+        emptyRow.hidden = visible > 0 || !query;
+    });
+});
+
+// Botones de impresión.
+document.querySelectorAll("[data-print]").forEach((button) => button.addEventListener("click", () => window.print()));
+
+// Botones que llenan un campo con un valor (ej. pagar saldo completo).
+document.querySelectorAll("[data-fill-target]").forEach((button) => button.addEventListener("click", () => {
+    const field = document.querySelector(button.dataset.fillTarget);
+    if (field) { field.value = button.dataset.fillValue; field.focus(); }
+}));
+
+// Número de operación obligatorio para pagos que no son en efectivo.
+const paymentMethod = document.querySelector("#metodo_pago");
+const operationField = document.querySelector("#operation-field");
+if (paymentMethod && operationField) {
+    const operationInput = operationField.querySelector("input");
+    const toggleOperation = () => {
+        const needsOperation = paymentMethod.value !== "EFECTIVO";
+        operationField.hidden = !needsOperation;
+        operationInput.required = needsOperation;
+        if (!needsOperation) operationInput.value = "";
+    };
+    paymentMethod.addEventListener("change", toggleOperation);
+    toggleOperation();
+}
+
+// Formularios que piden un motivo antes de enviarse (ej. anular un pago).
+document.querySelectorAll("form[data-require-reason]").forEach((form) => form.addEventListener("submit", (event) => {
+    const reason = window.prompt(form.dataset.requireReason, "");
+    if (reason === null || reason.trim() === "") { event.preventDefault(); return; }
+    form.querySelector("input[name='motivo']").value = reason.trim().slice(0, 150);
+}));
+
+// Margen del producto mientras se escriben los precios.
+const salePrice = document.querySelector("#pventa");
+const costPrice = document.querySelector("#pcompra");
+const marginInfo = document.querySelector("#product-margin");
+if (salePrice && costPrice && marginInfo) {
+    const updateMargin = () => {
+        const sale = Number(salePrice.value), cost = Number(costPrice.value);
+        if (!salePrice.value || !costPrice.value || !(cost > 0)) { marginInfo.textContent = ""; marginInfo.className = ""; return; }
+        const margin = ((sale - cost) / cost) * 100;
+        marginInfo.textContent = sale < cost ? "El precio de venta es menor que el de compra." : `Margen de ganancia: ${margin.toFixed(1)}% (S/ ${(sale - cost).toFixed(2)} por unidad)`;
+        marginInfo.className = sale < cost ? "text-danger" : "";
+    };
+    salePrice.addEventListener("input", updateMargin);
+    costPrice.addEventListener("input", updateMargin);
+    updateMargin();
 }

@@ -83,7 +83,7 @@ class Product
                                 ORDER BY idafectacion")->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function create(array $product): int
+    public function create(array $product, int $userId): int
     {
         $this->db->beginTransaction();
         try {
@@ -96,6 +96,15 @@ class Product
                  :idunidad, :idcategoria, :idafectacion, :urlimagen, 1)");
             $statement->execute($this->params($product));
             $id = (int) $this->db->lastInsertId();
+            $initialStock = round((float) $product["stock"], 2);
+            if ($initialStock > 0) {
+                // El stock inicial queda registrado como movimiento de inventario.
+                $movement = $this->db->prepare("INSERT INTO movimiento_inventario
+                    (idproducto, idusuario, tipo, cantidad, stock_anterior, stock_nuevo, motivo)
+                    VALUES (:producto, :usuario, 'ENTRADA', :cantidad, 0, :nuevo, 'Stock inicial')");
+                $quantity = number_format($initialStock, 2, ".", "");
+                $movement->execute(["producto" => $id, "usuario" => $userId, "cantidad" => $quantity, "nuevo" => $quantity]);
+            }
             $this->db->commit();
             return $id;
         } catch (Throwable $exception) {
@@ -109,6 +118,7 @@ class Product
     public function update(int $id, array $product): void
     {
         $params = $this->params($product);
+        unset($params["stock"]); // El stock solo cambia con ventas y movimientos de inventario.
         $params["id"] = $id;
 
         $this->db->beginTransaction();
@@ -119,7 +129,6 @@ class Product
                     codigobarra = :codigobarra,
                     pventa = :pventa,
                     pcompra = :pcompra,
-                    stock = :stock,
                     stockseguridad = :stockseguridad,
                     idunidad = :idunidad,
                     idcategoria = :idcategoria,
