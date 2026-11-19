@@ -69,6 +69,15 @@ class Sale
                 throw new RuntimeException("La venta no existe o ya fue anulada.");
             }
 
+            $creditQuery = $this->db->prepare("SELECT c.idcredito,
+                                                      (SELECT COUNT(*) FROM pago_credito p WHERE p.idcredito = c.idcredito) AS pagos
+                                               FROM credito c WHERE c.idventa = :id AND c.estado <> 0 FOR UPDATE");
+            $creditQuery->execute(["id" => $id]);
+            $credit = $creditQuery->fetch(PDO::FETCH_ASSOC);
+            if ($credit && (int) $credit["pagos"] > 0) {
+                throw new RuntimeException("No se puede anular la venta porque su crédito ya tiene pagos registrados.");
+            }
+
             $detailQuery = $this->db->prepare("SELECT idproducto, cantidad FROM detalle_venta
                                                WHERE idventa = :id AND estado = 1
                                                ORDER BY idproducto, iddetalle FOR UPDATE");
@@ -118,6 +127,10 @@ class Sale
             $detailsUpdate->execute(["id" => $id]);
             $saleUpdate = $this->db->prepare("UPDATE venta SET estado = 0 WHERE idventa = :id");
             $saleUpdate->execute(["id" => $id]);
+            if ($credit) {
+                $creditUpdate = $this->db->prepare("UPDATE credito SET estado = 0 WHERE idcredito = :id");
+                $creditUpdate->execute(["id" => $credit["idcredito"]]);
+            }
             $this->db->commit();
         } catch (Throwable $error) {
             if ($this->db->inTransaction()) {
