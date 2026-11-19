@@ -16,6 +16,7 @@ require __DIR__ . "/app/Models/Category.php";
 require __DIR__ . "/app/Models/Product.php";
 require __DIR__ . "/app/Models/Client.php";
 require __DIR__ . "/app/Models/Sale.php";
+require __DIR__ . "/app/Models/Credit.php";
 require __DIR__ . "/app/Controllers/AuthController.php";
 require __DIR__ . "/app/Controllers/DashboardController.php";
 require __DIR__ . "/app/Controllers/ModuleController.php";
@@ -26,6 +27,7 @@ require __DIR__ . "/app/Controllers/ProductoController.php";
 require __DIR__ . "/app/Controllers/TopProductosController.php";
 require __DIR__ . "/app/Controllers/ClienteController.php";
 require __DIR__ . "/app/Controllers/VentaController.php";
+require __DIR__ . "/app/Controllers/CreditoController.php";
 require __DIR__ . "/app/Models/Inventario.php";
 require __DIR__ . "/app/Controllers/InventarioController.php";
 
@@ -41,6 +43,7 @@ $productoController = new ProductoController(new Product($db), new Category($db)
 $topProductosController = new TopProductosController(new Product($db), new Profile($db));
 $clienteController = new ClienteController(new Client($db), new Profile($db));
 $ventaController = new VentaController(new Sale($db), new Profile($db));
+$creditoController = new CreditoController(new Credit($db), new Profile($db));
 $inventarioController = new InventarioController(new Inventario($db),new Profile($db));
 $route = $_GET["route"] ?? (isset($_SESSION["idusuario"]) ? "dashboard" : "login");
 
@@ -148,6 +151,15 @@ if (isset($ventaRoutes[$route])) {
 
 if (isset($clienteRoutes[$route])) {
     $clienteController->{$clienteRoutes[$route]}();
+    exit;
+}
+
+$creditoRoutes = [
+    "module/creditos" => "index"
+];
+
+if (isset($creditoRoutes[$route])) {
+    $creditoController->{$creditoRoutes[$route]}();
     exit;
 }
 
