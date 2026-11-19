@@ -14,9 +14,28 @@
         <label for="sale-client">Cliente</label><select name="idcliente" id="sale-client"><option value="">Cliente general</option><?php foreach ($clients as $client): ?><option value="<?= (int)$client["idcliente"] ?>"><?= htmlspecialchars($client["nombre"] . " · " . $client["nrodocumento"], ENT_QUOTES, "UTF-8") ?></option><?php endforeach; ?></select>
         <label for="sale-document">Comprobante</label><select name="idtipocomprobante" id="sale-document" required><?php foreach ($documentTypes as $type): ?><option value="<?= (int)$type["idtipocomprobante"] ?>"><?= htmlspecialchars($type["nombre"], ENT_QUOTES, "UTF-8") ?></option><?php endforeach; ?></select>
         <label for="sale-payment">Forma de pago</label><select name="formapago" id="sale-payment"><option value="C">Contado</option><option value="R">Credito</option></select>
+        <div id="sale-credit-fields" hidden>
+            <label for="sale-due-date">Vencimiento del crédito</label>
+            <input type="date" name="vencimiento" id="sale-due-date" min="<?= date("Y-m-d") ?>" value="<?= date("Y-m-d", strtotime("+30 days")) ?>">
+            <small>Las ventas a crédito requieren un cliente registrado.</small>
+        </div>
         <div class="sale-total"><span>Total a pagar</span><strong id="sale-total">S/ 0.00</strong><small>Precios incluyen impuestos segun afectacion del producto.</small></div>
         <button class="btn btn-primary sale-submit" type="submit" id="sale-submit" disabled>Registrar venta</button>
         <a class="btn btn-light sale-cancel" href="index.php?route=module/ventas">Cancelar</a>
     </aside>
 </form>
+<script>
+(function () {
+    var payment = document.getElementById("sale-payment");
+    var creditFields = document.getElementById("sale-credit-fields");
+    var dueDate = document.getElementById("sale-due-date");
+    function toggleCredit() {
+        var isCredit = payment.value === "R";
+        creditFields.hidden = !isCredit;
+        dueDate.disabled = !isCredit;
+    }
+    payment.addEventListener("change", toggleCredit);
+    toggleCredit();
+})();
+</script>
 <script type="application/json" id="sale-products"><?= json_encode($products, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?></script>

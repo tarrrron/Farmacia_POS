@@ -69,6 +69,15 @@ class Sale
                 throw new RuntimeException("La venta no existe o ya fue anulada.");
             }
 
+            $creditQuery = $this->db->prepare("SELECT c.idcredito,
+                                                      (SELECT COUNT(*) FROM pago_credito p WHERE p.idcredito = c.idcredito) AS pagos
+                                               FROM credito c WHERE c.idventa = :id AND c.estado <> 0 FOR UPDATE");
+            $creditQuery->execute(["id" => $id]);
+            $credit = $creditQuery->fetch(PDO::FETCH_ASSOC);
+            if ($credit && (int) $credit["pagos"] > 0) {
+                throw new RuntimeException("No se puede anular la venta porque su crédito ya tiene pagos registrados.");
+            }
+
             $detailQuery = $this->db->prepare("SELECT idproducto, cantidad FROM detalle_venta
                                                WHERE idventa = :id AND estado = 1
                                                ORDER BY idproducto, iddetalle FOR UPDATE");
@@ -118,6 +127,10 @@ class Sale
             $detailsUpdate->execute(["id" => $id]);
             $saleUpdate = $this->db->prepare("UPDATE venta SET estado = 0 WHERE idventa = :id");
             $saleUpdate->execute(["id" => $id]);
+            if ($credit) {
+                $creditUpdate = $this->db->prepare("UPDATE credito SET estado = 0 WHERE idcredito = :id");
+                $creditUpdate->execute(["id" => $credit["idcredito"]]);
+            }
             $this->db->commit();
         } catch (Throwable $error) {
             if ($this->db->inTransaction()) {
@@ -149,6 +162,10 @@ class Sale
             } elseif ((int)$sale["idtipocomprobante"] === 2) {
                 throw new RuntimeException("Para emitir factura, selecciona un cliente con RUC.");
             }
+            $isCredit = $sale["formapago"] === "R";
+            if ($isCredit && !$sale["idcliente"]) {
+                throw new RuntimeException("Para una venta a crédito, selecciona un cliente registrado.");
+            }
             $productQuery = $this->db->prepare("SELECT p.idproducto, p.nombre, p.pventa, p.stock, p.idafectacion,
                                                        u.descripcion AS unidad
                                                 FROM producto p INNER JOIN unidad u ON u.idunidad = p.idunidad
@@ -179,11 +196,12 @@ class Sale
             }
             if (!$lines) throw new RuntimeException("Agrega al menos un producto a la venta.");
 
-            $insert = $this->db->prepare("INSERT INTO venta (fecha,idcliente,idtipocomprobante,serie,correlativo,total,idusuario,total_gravado,total_exonerado,total_inafecto,total_igv,formapago,idmoneda)
-                                          VALUES (NOW(),:cliente,:tipo,:serie,:correlativo,:total,:usuario,:gravado,:exonerado,:inafecto,:igv,:pago,1)");
+            $dueDate = $isCredit ? ($sale["vencimiento"] ?? null) : null;
+            $insert = $this->db->prepare("INSERT INTO venta (fecha,idcliente,idtipocomprobante,serie,correlativo,total,idusuario,total_gravado,total_exonerado,total_inafecto,total_igv,formapago,idmoneda,vencimiento)
+                                          VALUES (NOW(),:cliente,:tipo,:serie,:correlativo,:total,:usuario,:gravado,:exonerado,:inafecto,:igv,:pago,1,:vencimiento)");
             $insert->execute(["cliente"=>$sale["idcliente"] ?: null, "tipo"=>$sale["idtipocomprobante"], "serie"=>$seriesRow["serie"],
                 "correlativo"=>(int)$seriesRow["correlativo"] + 1, "total"=>round($total,2), "usuario"=>$userId,
-                "gravado"=>round($gravado,2), "exonerado"=>round($exonerado,2), "inafecto"=>round($inafecto,2), "igv"=>round($igv,2), "pago"=>$sale["formapago"]]);
+                "gravado"=>round($gravado,2), "exonerado"=>round($exonerado,2), "inafecto"=>round($inafecto,2), "igv"=>round($igv,2), "pago"=>$sale["formapago"], "vencimiento"=>$dueDate]);
             $saleId = (int)$this->db->lastInsertId();
             $detail = $this->db->prepare("INSERT INTO detalle_venta (idventa,idproducto,cantidad,unidad,pventa,igv,total,idafectacion)
                                            VALUES (:venta,:producto,:cantidad,:unidad,:precio,:igv,:total,:afectacion)");
@@ -194,6 +212,12 @@ class Sale
                     "precio"=>$p["pventa"],"igv"=>$line["igv"],"total"=>$line["total"],"afectacion"=>$p["idafectacion"]]);
                 $stockUpdate->execute(["cantidad"=>$line["cantidad"],"disponible"=>$line["cantidad"],"id"=>$p["idproducto"]]);
                 if ($stockUpdate->rowCount() !== 1) throw new RuntimeException("No se pudo actualizar el stock de " . $p["nombre"] . ".");
+            }
+            if ($isCredit) {
+                $credit = $this->db->prepare("INSERT INTO credito (idventa, idcliente, monto_total, saldo, fecha_vencimiento, estado)
+                                              VALUES (:venta, :cliente, :monto, :saldo, :vencimiento, 1)");
+                $credit->execute(["venta"=>$saleId, "cliente"=>$sale["idcliente"], "monto"=>round($total,2),
+                    "saldo"=>round($total,2), "vencimiento"=>$dueDate]);
             }
             $advance = $this->db->prepare("UPDATE serie SET correlativo = :correlativo WHERE idserie = :id");
             $advance->execute(["correlativo"=>(int)$seriesRow["correlativo"] + 1,"id"=>$seriesRow["idserie"]]);
