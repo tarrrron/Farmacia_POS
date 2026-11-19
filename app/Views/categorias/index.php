@@ -1,5 +1,5 @@
 <div class="page-title">
-    <h1>Gestion de categorias</h1>
+    <h1>Gestión de categorias</h1>
     <p>Administra las familias de productos de la farmacia.</p>
 </div>
 
@@ -9,7 +9,7 @@
             <h2>Categorias registradas</h2>
             <p>Organiza los productos para busqueda, inventario y ventas.</p>
         </div>
-        <a class="btn btn-primary" href="index.php?route=module/categorias/crear">Registrar categoria</a>
+        <a class="btn btn-primary" href="index.php?route=module/categorias/crear">Registrar categoría</a>
     </div>
 
     <?php if ($message !== ""): ?>
@@ -19,8 +19,9 @@
         <div class="alert alert-error" role="alert"><?= htmlspecialchars($error, ENT_QUOTES, "UTF-8") ?></div>
     <?php endif; ?>
 
+    <input class="table-filter" type="search" data-filter-target="#categorias-table-1" placeholder="Buscar categorías..." aria-label="Buscar categorías">
     <div class="table-wrap">
-        <table class="data-table">
+        <table class="data-table" id="categorias-table-1">
             <thead>
                 <tr>
                     <th scope="col">Nombre</th>

@@ -1,6 +1,8 @@
 <?php
 class CreditoController
 {
+    private const ADMIN_PROFILE_ID = 1;
+
     private Credit $credits;
     private Profile $profiles;
 
@@ -17,6 +19,7 @@ class CreditoController
         $statuses = [
             "" => "Todos",
             "pendiente" => "Pendientes",
+            "por_vencer" => "Vencen en 7 días",
             "vencido" => "Vencidos",
             "pagado" => "Pagados",
             "anulado" => "Anulados"
@@ -28,10 +31,7 @@ class CreditoController
 
         $credits = $this->credits->all($status);
         $summary = $this->credits->summary();
-        $message = $_SESSION["credito_message"] ?? "";
-        unset($_SESSION["credito_message"]);
-        $error = $_SESSION["credito_error"] ?? "";
-        unset($_SESSION["credito_error"]);
+        [$message, $error] = $this->flash();
 
         $view = __DIR__ . "/../Views/creditos/index.php";
         require __DIR__ . "/../Views/layout/app.php";
@@ -42,12 +42,41 @@ class CreditoController
         $menuOptions = $this->requireAccess("GET");
         $credit = $this->requireCredit($_GET["id"] ?? null);
         $csrfToken = $_SESSION["credito_csrf"];
-        $message = $_SESSION["credito_message"] ?? "";
-        unset($_SESSION["credito_message"]);
-        $error = $_SESSION["credito_error"] ?? "";
-        unset($_SESSION["credito_error"]);
+        $paymentMethods = Credit::PAYMENT_METHODS;
+        $isAdmin = $this->isAdmin();
+        [$message, $error] = $this->flash();
 
         $view = __DIR__ . "/../Views/creditos/show.php";
+        require __DIR__ . "/../Views/layout/app.php";
+    }
+
+    public function client(): void
+    {
+        $menuOptions = $this->requireAccess("GET");
+        $id = filter_var($_GET["id"] ?? null, FILTER_VALIDATE_INT, ["options" => ["min_range" => 1]]);
+        $account = $id !== false ? $this->credits->clientStatement($id) : null;
+        if (!$account) {
+            http_response_code(404);
+            exit("Cliente no encontrado.");
+        }
+        $paymentMethods = Credit::PAYMENT_METHODS;
+
+        $view = __DIR__ . "/../Views/creditos/cliente.php";
+        require __DIR__ . "/../Views/layout/app.php";
+    }
+
+    public function receipt(): void
+    {
+        $menuOptions = $this->requireAccess("GET");
+        $id = filter_var($_GET["id"] ?? null, FILTER_VALIDATE_INT, ["options" => ["min_range" => 1]]);
+        $payment = $id !== false ? $this->credits->findPayment($id) : null;
+        if (!$payment) {
+            http_response_code(404);
+            exit("Pago no encontrado.");
+        }
+        $paymentMethods = Credit::PAYMENT_METHODS;
+
+        $view = __DIR__ . "/../Views/creditos/constancia.php";
         require __DIR__ . "/../Views/layout/app.php";
     }
 
@@ -59,21 +88,23 @@ class CreditoController
         $back = "index.php?route=module/creditos/ver&id=" . (int) $credit["idcredito"];
 
         $amount = trim((string) ($_POST["monto"] ?? ""));
+        $method = (string) ($_POST["metodo_pago"] ?? "");
+        $operation = trim((string) ($_POST["nro_operacion"] ?? ""));
         $note = trim((string) ($_POST["observacion"] ?? ""));
         if (!preg_match('/^\d{1,9}(\.\d{1,2})?$/', $amount)) {
-            $_SESSION["credito_error"] = "Ingresa un monto válido, con hasta dos decimales.";
-            header("Location: " . $back, true, 303);
-            exit;
+            $this->back($back, "Ingresa un monto válido, con hasta dos decimales.");
         }
-        if (mb_strlen($note) > 150) {
-            $_SESSION["credito_error"] = "La observación no puede superar los 150 caracteres.";
-            header("Location: " . $back, true, 303);
-            exit;
+        if (mb_strlen($note) > 150 || mb_strlen($operation) > 50) {
+            $this->back($back, "La observación (150) o el número de operación (50) superan el máximo de caracteres.");
+        }
+        if ($method !== "EFECTIVO" && $operation === "") {
+            $this->back($back, "Ingresa el número de operación para pagos que no son en efectivo.");
         }
 
         try {
-            $this->credits->addPayment((int) $credit["idcredito"], $amount, $note, (int) $_SESSION["idusuario"]);
+            $paymentId = $this->credits->addPayment((int) $credit["idcredito"], $amount, $method, $operation, $note, (int) $_SESSION["idusuario"]);
             $_SESSION["credito_message"] = "Pago registrado correctamente.";
+            $_SESSION["credito_last_payment"] = $paymentId;
         } catch (RuntimeException $exception) {
             $_SESSION["credito_error"] = $exception->getMessage();
         } catch (Throwable $exception) {
@@ -83,6 +114,88 @@ class CreditoController
 
         header("Location: " . $back, true, 303);
         exit;
+    }
+
+    public function cancelPayment(): void
+    {
+        $this->requireAccess("POST");
+        $this->requireCsrf();
+        if (!$this->isAdmin()) {
+            http_response_code(403);
+            exit("Solo un administrador puede anular pagos.");
+        }
+
+        $paymentId = filter_var($_POST["idpago"] ?? null, FILTER_VALIDATE_INT, ["options" => ["min_range" => 1]]);
+        $creditId = filter_var($_POST["id"] ?? null, FILTER_VALIDATE_INT, ["options" => ["min_range" => 1]]);
+        $reason = trim((string) ($_POST["motivo"] ?? ""));
+        $back = "index.php?route=module/creditos" . ($creditId ? "/ver&id=" . $creditId : "");
+        if ($paymentId === false || $reason === "" || mb_strlen($reason) > 150) {
+            $this->back($back, "Indica el motivo de la anulación (máximo 150 caracteres).");
+        }
+
+        try {
+            $this->credits->cancelPayment($paymentId, $reason, (int) $_SESSION["idusuario"]);
+            $_SESSION["credito_message"] = "Pago anulado. El saldo del crédito fue restituido.";
+        } catch (RuntimeException $exception) {
+            $_SESSION["credito_error"] = $exception->getMessage();
+        } catch (Throwable $exception) {
+            error_log($exception->getMessage());
+            $_SESSION["credito_error"] = "No se pudo anular el pago. Inténtalo nuevamente.";
+        }
+
+        header("Location: " . $back, true, 303);
+        exit;
+    }
+
+    public function extend(): void
+    {
+        $this->requireAccess("POST");
+        $this->requireCsrf();
+        $credit = $this->requireCredit($_POST["id"] ?? null);
+        $back = "index.php?route=module/creditos/ver&id=" . (int) $credit["idcredito"];
+
+        $newDate = trim((string) ($_POST["fecha_vencimiento"] ?? ""));
+        $reason = trim((string) ($_POST["motivo"] ?? ""));
+        $parsed = DateTime::createFromFormat("!Y-m-d", $newDate);
+        if (!$parsed || $parsed->format("Y-m-d") !== $newDate || $parsed < new DateTime("today")) {
+            $this->back($back, "Selecciona una fecha de vencimiento válida, desde hoy en adelante.");
+        }
+        if ($reason === "" || mb_strlen($reason) > 150) {
+            $this->back($back, "Indica el motivo de la prórroga (máximo 150 caracteres).");
+        }
+
+        try {
+            $this->credits->extend((int) $credit["idcredito"], $newDate, $reason, (int) $_SESSION["idusuario"]);
+            $_SESSION["credito_message"] = "Vencimiento prorrogado al " . $parsed->format("d/m/Y") . ".";
+        } catch (RuntimeException $exception) {
+            $_SESSION["credito_error"] = $exception->getMessage();
+        } catch (Throwable $exception) {
+            error_log($exception->getMessage());
+            $_SESSION["credito_error"] = "No se pudo prorrogar el crédito. Inténtalo nuevamente.";
+        }
+
+        header("Location: " . $back, true, 303);
+        exit;
+    }
+
+    private function flash(): array
+    {
+        $message = $_SESSION["credito_message"] ?? "";
+        $error = $_SESSION["credito_error"] ?? "";
+        unset($_SESSION["credito_message"], $_SESSION["credito_error"]);
+        return [$message, $error];
+    }
+
+    private function back(string $location, string $error): void
+    {
+        $_SESSION["credito_error"] = $error;
+        header("Location: " . $location, true, 303);
+        exit;
+    }
+
+    private function isAdmin(): bool
+    {
+        return (int) ($_SESSION["idperfil"] ?? 0) === self::ADMIN_PROFILE_ID;
     }
 
     private function requireCredit($id): array

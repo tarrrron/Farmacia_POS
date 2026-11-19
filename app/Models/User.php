@@ -10,20 +10,40 @@ class User
 
     public function findActiveByCredentials(string $username, string $password): ?array
     {
-        $sql = "SELECT idusuario, nombre, usuario, idperfil
-                FROM usuario
-                WHERE usuario = :usuario
-                  AND clave = SHA1(:clave)
-                  AND estado = 1";
+        $statement = $this->db->prepare("SELECT idusuario, nombre, usuario, idperfil, clave
+                                         FROM usuario
+                                         WHERE usuario = :usuario
+                                           AND estado = 1");
+        $statement->execute(["usuario" => $username]);
+        $user = $statement->fetch(PDO::FETCH_ASSOC);
+        if (!$user) {
+            return null;
+        }
 
-        $statement = $this->db->prepare($sql);
-        $statement->execute([
-            "usuario" => $username,
-            "clave" => $password
-        ]);
+        $storedHash = (string) $user["clave"];
+        $valid = password_verify($password, $storedHash);
+        $isLegacySha1 = !$valid && preg_match('/^[a-f0-9]{40}$/i', $storedHash) === 1
+            && hash_equals(strtolower($storedHash), sha1($password));
 
-        $user = $statement->fetch();
-        return $user ?: null;
+        if (!$valid && !$isLegacySha1) {
+            return null;
+        }
+
+        // Las claves antiguas en SHA1 se convierten a password_hash al iniciar sesión.
+        if ($isLegacySha1 || password_needs_rehash($storedHash, PASSWORD_DEFAULT)) {
+            $rehash = $this->db->prepare("UPDATE usuario SET clave = :clave WHERE idusuario = :id");
+            $rehash->execute(["clave" => password_hash($password, PASSWORD_DEFAULT), "id" => $user["idusuario"]]);
+        }
+
+        unset($user["clave"]);
+        return $user;
+    }
+
+    public function isActive(int $id): bool
+    {
+        $statement = $this->db->prepare("SELECT 1 FROM usuario WHERE idusuario = :id AND estado = 1");
+        $statement->execute(["id" => $id]);
+        return $statement->fetchColumn() !== false;
     }
 
     public function all(): array
@@ -59,8 +79,8 @@ class User
         $params = ["id" => $id, "nombre" => $name, "usuario" => $username, "idperfil" => $profileId];
         $passwordSql = "";
         if ($password !== "") {
-            $passwordSql = ", clave = SHA1(:clave)";
-            $params["clave"] = $password;
+            $passwordSql = ", clave = :clave";
+            $params["clave"] = password_hash($password, PASSWORD_DEFAULT);
         }
         $this->db->beginTransaction();
         try {
@@ -115,11 +135,11 @@ class User
         try {
             $this->lockActiveProfile($profileId);
             $statement = $this->db->prepare("INSERT INTO usuario (nombre, usuario, clave, idperfil, estado)
-                                           VALUES (:nombre, :usuario, SHA1(:clave), :idperfil, 1)");
+                                           VALUES (:nombre, :usuario, :clave, :idperfil, 1)");
             $statement->execute([
                 "nombre" => $name,
                 "usuario" => $username,
-                "clave" => $password,
+                "clave" => password_hash($password, PASSWORD_DEFAULT),
                 "idperfil" => $profileId
             ]);
             $id = (int) $this->db->lastInsertId();

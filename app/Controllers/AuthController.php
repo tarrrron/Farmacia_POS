@@ -30,6 +30,8 @@ class AuthController
             return;
         }
 
+        // Nuevo identificador de sesión para evitar la fijación de sesión.
+        session_regenerate_id(true);
         $_SESSION["idusuario"] = $user["idusuario"];
         $_SESSION["nombre"] = $user["nombre"];
         $_SESSION["usuario"] = $user["usuario"];
@@ -41,6 +43,14 @@ class AuthController
 
     public function logout(): void
     {
+        $token = $_POST["csrf_token"] ?? null;
+        if ($_SERVER["REQUEST_METHOD"] !== "POST" || !is_string($token)
+            || !hash_equals((string) ($_SESSION["logout_csrf"] ?? ""), $token)) {
+            header("Location: index.php");
+            exit;
+        }
+
+        $_SESSION = [];
         session_destroy();
         header("Location: index.php");
         exit;

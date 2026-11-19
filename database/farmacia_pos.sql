@@ -136,7 +136,7 @@ CREATE TABLE `usuario` (
   `idusuario` int(11) NOT NULL AUTO_INCREMENT,
   `nombre` varchar(100) NOT NULL,
   `usuario` varchar(50) NOT NULL,
-  `clave` char(40) NOT NULL,
+  `clave` varchar(255) NOT NULL,
   `idperfil` int(11) NOT NULL,
   `estado` tinyint(1) NOT NULL DEFAULT 1,
   `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
@@ -252,13 +252,33 @@ CREATE TABLE `pago_credito` (
   `idcredito` int(11) NOT NULL,
   `idusuario` int(11) NOT NULL,
   `monto` decimal(11,2) NOT NULL,
+  `metodo_pago` varchar(20) NOT NULL DEFAULT 'EFECTIVO',
+  `nro_operacion` varchar(50) DEFAULT NULL,
   `fecha` datetime NOT NULL DEFAULT current_timestamp(),
   `observacion` varchar(150) DEFAULT NULL,
+  `estado` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1 = valido, 0 = anulado',
+  `motivo_anulacion` varchar(150) DEFAULT NULL,
+  `fecha_anulacion` datetime DEFAULT NULL,
+  `idusuario_anula` int(11) DEFAULT NULL,
   PRIMARY KEY (`idpago`),
   KEY `idx_pago_credito` (`idcredito`),
   KEY `idx_pago_usuario` (`idusuario`),
   CONSTRAINT `fk_pago_credito` FOREIGN KEY (`idcredito`) REFERENCES `credito` (`idcredito`),
   CONSTRAINT `fk_pago_usuario` FOREIGN KEY (`idusuario`) REFERENCES `usuario` (`idusuario`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `credito_prorroga` (
+  `idprorroga` int(11) NOT NULL AUTO_INCREMENT,
+  `idcredito` int(11) NOT NULL,
+  `idusuario` int(11) NOT NULL,
+  `fecha_anterior` date DEFAULT NULL,
+  `fecha_nueva` date NOT NULL,
+  `motivo` varchar(150) NOT NULL,
+  `fecha` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`idprorroga`),
+  KEY `idx_prorroga_credito` (`idcredito`),
+  CONSTRAINT `fk_prorroga_credito` FOREIGN KEY (`idcredito`) REFERENCES `credito` (`idcredito`),
+  CONSTRAINT `fk_prorroga_usuario` FOREIGN KEY (`idusuario`) REFERENCES `usuario` (`idusuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO `perfil` (`idperfil`, `nombre`, `estado`) VALUES
@@ -330,7 +350,7 @@ INSERT INTO `moneda` (`idmoneda`, `nombre`, `simbolo`, `tipo_cambio`, `estado`) 
 (2, 'DOLARES', '$', 3.8000, 1);
 
 INSERT INTO `usuario` (`idusuario`, `nombre`, `usuario`, `clave`, `idperfil`, `estado`) VALUES
-(1, 'Administrador', 'admin', SHA1('1234'), 1, 1);
+(1, 'Administrador', 'admin', '$2y$10$SNNdVnHG3/SabG41GpFoU.FhsC3Y6y7xLhlwIu9NHX6HIx9q5G9Ai', 1, 1);
 
 INSERT INTO `serie` (`idserie`, `idtipocomprobante`, `serie`, `correlativo`, `estado`) VALUES
 (1, 1, 'B001', 0, 1),

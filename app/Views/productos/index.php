@@ -1,13 +1,13 @@
 <div class="page-title">
-    <h1>Gestion de productos</h1>
-    <p>Administra precios, stock y clasificacion de productos.</p>
+    <h1>Gestión de productos</h1>
+    <p>Administra precios, stock y clasificación de productos.</p>
 </div>
 
 <section class="panel">
     <div class="section-toolbar">
         <div>
             <h2>Productos registrados</h2>
-            <p>Controla informacion comercial e inventario minimo.</p>
+            <p>Controla información comercial e inventario mínimo.</p>
         </div>
         <a class="btn btn-primary" href="index.php?route=module/productos/crear">Registrar producto</a>
     </div>
@@ -16,13 +16,14 @@
         <div class="alert alert-success" role="status"><?= htmlspecialchars($message, ENT_QUOTES, "UTF-8") ?></div>
     <?php endif; ?>
 
+    <input class="table-filter" type="search" data-filter-target="#productos-table-1" placeholder="Buscar productos..." aria-label="Buscar productos">
     <div class="table-wrap">
-        <table class="data-table product-table">
+        <table class="data-table product-table" id="productos-table-1">
             <thead>
                 <tr>
                     <th scope="col">Imagen</th>
                     <th scope="col">Producto</th>
-                    <th scope="col">Categoria</th>
+                    <th scope="col">Categoría</th>
                     <th scope="col">Precio</th>
                     <th scope="col">Stock</th>
                     <th scope="col">Estado</th>
@@ -44,13 +45,13 @@
                         </td>
                         <td>
                             <strong><?= htmlspecialchars($product["nombre"], ENT_QUOTES, "UTF-8") ?></strong>
-                            <small><?= htmlspecialchars($product["codigobarra"] ?: "Sin codigo", ENT_QUOTES, "UTF-8") ?></small>
+                            <small><?= htmlspecialchars($product["codigobarra"] ?: "Sin código", ENT_QUOTES, "UTF-8") ?></small>
                         </td>
                         <td><?= htmlspecialchars($product["categoria"], ENT_QUOTES, "UTF-8") ?></td>
-                        <td>S/ <?= number_format((float) $product["pventa"], 2) ?></td>
+                        <td>S/ <?= number_format((float) $product["pventa"], 2) ?><?php $cost = (float) $product["pcompra"]; $margin = $cost > 0 ? (((float) $product["pventa"] - $cost) / $cost) * 100 : null; ?><small><?= $margin === null ? "Sin costo registrado" : "Margen " . number_format($margin, 1) . "%" ?></small></td>
                         <td>
                             <?= number_format((float) $product["stock"], 2) ?>
-                            <small>Min. <?= number_format((float) $product["stockseguridad"], 2) ?></small>
+                            <small>Mín. <?= number_format((float) $product["stockseguridad"], 2) ?></small>
                         </td>
                         <td><span class="status-badge <?= (int) $product["estado"] === 1 ? "is-active" : "is-muted" ?>"><?= (int) $product["estado"] === 1 ? "Activo" : "Inactivo" ?></span></td>
                         <td class="action-cell">

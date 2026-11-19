@@ -71,7 +71,11 @@ class ProductoController
         $this->requireCsrf();
 
         $product = $editing ? $this->requireProduct($_POST["id"] ?? null) : $this->emptyProduct();
+        $currentStock = $editing ? $product["stock"] : null;
         $product = array_merge($product, $this->productFromPost());
+        if ($editing) {
+            $product["stock"] = $currentStock;
+        }
         $existingImagePath = $product["urlimagen"] ?? null;
         $errors = $this->validate($product, $editing ? (int) $product["idproducto"] : 0);
 
@@ -92,7 +96,7 @@ class ProductoController
                 if ($editing) {
                     $this->products->update((int) $product["idproducto"], $product);
                 } else {
-                    $this->products->create($product);
+                    $this->products->create($product, (int) $_SESSION["idusuario"]);
                 }
                 $this->redirect($editing ? "Producto actualizado." : "Producto registrado.");
             } catch (InvalidArgumentException $exception) {
@@ -189,6 +193,11 @@ class ProductoController
                 $errors[] = "Los precios y cantidades deben ser numeros mayores o iguales a cero.";
                 break;
             }
+        }
+
+        if (is_numeric($product["pventa"]) && is_numeric($product["pcompra"])
+            && (float) $product["pventa"] < (float) $product["pcompra"]) {
+            $errors[] = "El precio de venta no puede ser menor que el precio de compra.";
         }
 
         foreach (["idunidad", "idcategoria", "idafectacion"] as $field) {

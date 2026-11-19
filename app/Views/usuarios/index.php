@@ -19,8 +19,9 @@
         <div class="alert alert-error" role="alert"><?= htmlspecialchars($error, ENT_QUOTES, "UTF-8") ?></div>
     <?php endif; ?>
 
+    <input class="table-filter" type="search" data-filter-target="#usuarios-table-1" placeholder="Buscar usuarios..." aria-label="Buscar usuarios">
     <div class="table-wrap">
-        <table class="data-table">
+        <table class="data-table" id="usuarios-table-1">
             <thead>
                 <tr><th scope="col">Nombre</th><th scope="col">Usuario</th><th scope="col">Perfil</th><th scope="col">Estado</th><th scope="col">Acciones</th></tr>
             </thead>

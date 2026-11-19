@@ -8,17 +8,32 @@ class Sale
         $this->db = $db;
     }
 
-    public function all(): array
+    public function all(?string $from = null, ?string $to = null): array
     {
-        return $this->db->query("SELECT v.idventa, v.fecha, v.serie, v.correlativo, v.total,
-                                       v.formapago, v.estado, c.nombre AS cliente,
+        $where = [];
+        $params = [];
+        if ($from !== null) {
+            $where[] = "DATE(v.fecha) >= :desde";
+            $params["desde"] = $from;
+        }
+        if ($to !== null) {
+            $where[] = "DATE(v.fecha) <= :hasta";
+            $params["hasta"] = $to;
+        }
+
+        $statement = $this->db->prepare("SELECT v.idventa, v.fecha, v.serie, v.correlativo, v.total,
+                                       v.formapago, v.estado, c.nombre AS cliente, c.nrodocumento,
                                        td.nombre AS comprobante, u.nombre AS vendedor,
                                        (SELECT COUNT(*) FROM detalle_venta d WHERE d.idventa = v.idventa) AS productos
                                 FROM venta v
                                 LEFT JOIN cliente c ON c.idcliente = v.idcliente
                                 INNER JOIN tipocomprobante td ON td.idtipocomprobante = v.idtipocomprobante
-                                INNER JOIN usuario u ON u.idusuario = v.idusuario
-                                ORDER BY v.idventa DESC LIMIT 100")->fetchAll(PDO::FETCH_ASSOC);
+                                INNER JOIN usuario u ON u.idusuario = v.idusuario"
+                                . ($where ? " WHERE " . implode(" AND ", $where) : "")
+                                . " ORDER BY v.idventa DESC" . ($where ? " LIMIT 1000" : " LIMIT 100"));
+        $statement->execute($params);
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function catalog(): array
@@ -31,7 +46,13 @@ class Sale
 
     public function clients(): array
     {
-        return $this->db->query("SELECT idcliente, nombre, nrodocumento FROM cliente WHERE estado = 1 ORDER BY nombre")->fetchAll(PDO::FETCH_ASSOC);
+        return $this->db->query("SELECT c.idcliente, c.nombre, c.nrodocumento,
+                                       COALESCE((SELECT SUM(cr.saldo) FROM credito cr
+                                                 WHERE cr.idcliente = c.idcliente AND cr.estado = 1), 0) AS deuda,
+                                       COALESCE((SELECT SUM(cr.saldo) FROM credito cr
+                                                 WHERE cr.idcliente = c.idcliente AND cr.estado = 1
+                                                   AND cr.fecha_vencimiento < CURDATE()), 0) AS deuda_vencida
+                                FROM cliente c WHERE c.estado = 1 ORDER BY c.nombre")->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function documentTypes(): array
@@ -49,6 +70,9 @@ class Sale
         $statement->execute(["id" => $id]);
         $sale = $statement->fetch(PDO::FETCH_ASSOC);
         if (!$sale) return null;
+        $statement = $this->db->prepare("SELECT idcredito, saldo, estado FROM credito WHERE idventa = :id");
+        $statement->execute(["id" => $id]);
+        $sale["credito"] = $statement->fetch(PDO::FETCH_ASSOC) ?: null;
         $statement = $this->db->prepare("SELECT d.*, p.nombre AS producto, u.descripcion AS unidad_nombre
                                         FROM detalle_venta d INNER JOIN producto p ON p.idproducto = d.idproducto
                                         INNER JOIN unidad u ON u.idunidad = p.idunidad WHERE d.idventa = :id ORDER BY d.iddetalle");
@@ -70,7 +94,7 @@ class Sale
             }
 
             $creditQuery = $this->db->prepare("SELECT c.idcredito,
-                                                      (SELECT COUNT(*) FROM pago_credito p WHERE p.idcredito = c.idcredito) AS pagos
+                                                      (SELECT COUNT(*) FROM pago_credito p WHERE p.idcredito = c.idcredito AND p.estado = 1) AS pagos
                                                FROM credito c WHERE c.idventa = :id AND c.estado <> 0 FOR UPDATE");
             $creditQuery->execute(["id" => $id]);
             $credit = $creditQuery->fetch(PDO::FETCH_ASSOC);
@@ -166,6 +190,15 @@ class Sale
             if ($isCredit && !$sale["idcliente"]) {
                 throw new RuntimeException("Para una venta a crédito, selecciona un cliente registrado.");
             }
+            if ($isCredit) {
+                $overdue = $this->db->prepare("SELECT COALESCE(SUM(saldo), 0) FROM credito
+                                               WHERE idcliente = :cliente AND estado = 1 AND fecha_vencimiento < CURDATE()");
+                $overdue->execute(["cliente" => $sale["idcliente"]]);
+                $overdueAmount = (float) $overdue->fetchColumn();
+                if ($overdueAmount > 0) {
+                    throw new RuntimeException("El cliente tiene créditos vencidos por S/ " . number_format($overdueAmount, 2) . ". Regulariza su deuda antes de otorgarle un nuevo crédito.");
+                }
+            }
             $productQuery = $this->db->prepare("SELECT p.idproducto, p.nombre, p.pventa, p.stock, p.idafectacion,
                                                        u.descripcion AS unidad
                                                 FROM producto p INNER JOIN unidad u ON u.idunidad = p.idunidad
@@ -206,8 +239,16 @@ class Sale
             $detail = $this->db->prepare("INSERT INTO detalle_venta (idventa,idproducto,cantidad,unidad,pventa,igv,total,idafectacion)
                                            VALUES (:venta,:producto,:cantidad,:unidad,:precio,:igv,:total,:afectacion)");
             $stockUpdate = $this->db->prepare("UPDATE producto SET stock = stock - :cantidad WHERE idproducto = :id AND stock >= :disponible");
+            $movement = $this->db->prepare("INSERT INTO movimiento_inventario
+                (idproducto, idusuario, tipo, cantidad, stock_anterior, stock_nuevo, motivo)
+                VALUES (:producto, :usuario, 'SALIDA', :cantidad, :anterior, :nuevo, :motivo)");
+            $invoice = $seriesRow["serie"] . "-" . str_pad((string)((int)$seriesRow["correlativo"] + 1), 8, "0", STR_PAD_LEFT);
             foreach ($lines as $line) {
                 $p = $line["product"];
+                $previousStock = round((float)$p["stock"], 2);
+                $movement->execute(["producto"=>$p["idproducto"], "usuario"=>$userId, "cantidad"=>number_format((float)$line["cantidad"], 2, ".", ""),
+                    "anterior"=>number_format($previousStock, 2, ".", ""), "nuevo"=>number_format(round($previousStock - (float)$line["cantidad"], 2), 2, ".", ""),
+                    "motivo"=>"Venta " . $invoice]);
                 $detail->execute(["venta"=>$saleId,"producto"=>$p["idproducto"],"cantidad"=>$line["cantidad"],"unidad"=>$p["unidad"],
                     "precio"=>$p["pventa"],"igv"=>$line["igv"],"total"=>$line["total"],"afectacion"=>$p["idafectacion"]]);
                 $stockUpdate->execute(["cantidad"=>$line["cantidad"],"disponible"=>$line["cantidad"],"id"=>$p["idproducto"]]);

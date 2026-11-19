@@ -51,7 +51,7 @@
                 <input id="nombre_comercial" name="nombre_comercial" type="text" maxlength="150" value="<?= htmlspecialchars($client["nombre_comercial"] ?? "", ENT_QUOTES, "UTF-8") ?>">
             </div>
             <div class="form-field">
-                <label for="direccion">Direccion</label>
+                <label for="direccion">Dirección</label>
                 <input id="direccion" name="direccion" type="text" maxlength="200" value="<?= htmlspecialchars($client["direccion"] ?? "", ENT_QUOTES, "UTF-8") ?>">
             </div>
             <div class="form-field">

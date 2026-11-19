@@ -40,7 +40,7 @@
                 <input id="nombre" name="nombre" type="text" maxlength="150" required value="<?= htmlspecialchars($product["nombre"], ENT_QUOTES, "UTF-8") ?>">
             </div>
             <div class="form-field">
-                <label for="codigobarra">Codigo de barra</label>
+                <label for="codigobarra">Código de barra</label>
                 <input id="codigobarra" name="codigobarra" type="text" maxlength="50" value="<?= htmlspecialchars($product["codigobarra"] ?? "", ENT_QUOTES, "UTF-8") ?>">
             </div>
             <div class="form-field">
@@ -50,19 +50,26 @@
             <div class="form-field">
                 <label for="pcompra">Precio compra</label>
                 <input id="pcompra" name="pcompra" type="number" min="0" step="0.01" required value="<?= htmlspecialchars((string) $product["pcompra"], ENT_QUOTES, "UTF-8") ?>">
+                <small id="product-margin" aria-live="polite"></small>
             </div>
             <div class="form-field">
-                <label for="stock">Stock</label>
-                <input id="stock" name="stock" type="number" min="0" step="0.01" required value="<?= htmlspecialchars((string) $product["stock"], ENT_QUOTES, "UTF-8") ?>">
+                <label for="stock"><?= $editing ? "Stock actual" : "Stock inicial" ?></label>
+                <?php if ($editing): ?>
+                    <input id="stock" type="number" value="<?= htmlspecialchars((string) $product["stock"], ENT_QUOTES, "UTF-8") ?>" readonly>
+                    <small>El stock se modifica desde <a class="text-link" href="index.php?route=module/inventario/crear">Inventario</a> o con las ventas.</small>
+                <?php else: ?>
+                    <input id="stock" name="stock" type="number" min="0" step="0.01" required value="<?= htmlspecialchars((string) $product["stock"], ENT_QUOTES, "UTF-8") ?>">
+                    <small>Se registrará como movimiento de entrada “Stock inicial”.</small>
+                <?php endif; ?>
             </div>
             <div class="form-field">
-                <label for="stockseguridad">Stock minimo</label>
+                <label for="stockseguridad">Stock mínimo</label>
                 <input id="stockseguridad" name="stockseguridad" type="number" min="0" step="0.01" required value="<?= htmlspecialchars((string) $product["stockseguridad"], ENT_QUOTES, "UTF-8") ?>">
             </div>
             <div class="form-field">
-                <label for="idcategoria">Categoria</label>
+                <label for="idcategoria">Categoría</label>
                 <select id="idcategoria" name="idcategoria" required>
-                    <option value="">Selecciona categoria</option>
+                    <option value="">Selecciona categoría</option>
                     <?php foreach ($categories as $category): ?>
                         <option value="<?= (int) $category["idcategoria"] ?>" <?= (string) $category["idcategoria"] === (string) $product["idcategoria"] ? "selected" : "" ?>><?= htmlspecialchars($category["nombre"], ENT_QUOTES, "UTF-8") ?></option>
                     <?php endforeach; ?>
@@ -78,9 +85,9 @@
                 </select>
             </div>
             <div class="form-field">
-                <label for="idafectacion">Afectacion</label>
+                <label for="idafectacion">Afectación</label>
                 <select id="idafectacion" name="idafectacion" required>
-                    <option value="">Selecciona afectacion</option>
+                    <option value="">Selecciona afectación</option>
                     <?php foreach ($affectations as $affectation): ?>
                         <option value="<?= (int) $affectation["idafectacion"] ?>" <?= (string) $affectation["idafectacion"] === (string) $product["idafectacion"] ? "selected" : "" ?>><?= htmlspecialchars($affectation["codigo"] . " - " . $affectation["descripcion"], ENT_QUOTES, "UTF-8") ?></option>
                     <?php endforeach; ?>

@@ -11,7 +11,7 @@
         </div>
         <form class="period-filter" method="GET" action="index.php">
             <input type="hidden" name="route" value="module/top-productos">
-            <label for="mes">Periodo</label>
+            <label for="mes">Período</label>
             <select id="mes" name="mes" onchange="this.form.submit()">
                 <option value="">Todos los meses</option>
                 <?php
@@ -35,7 +35,7 @@
                     <?php foreach ($topProductos as $producto): ?>
                         <tr>
                             <td><span class="ranking-number"><?= $puesto++ ?></span></td>
-                            <td><strong><?= htmlspecialchars($producto["nombre"], ENT_QUOTES, "UTF-8") ?></strong><small><?= htmlspecialchars($producto["codigobarra"] ?: "Sin codigo", ENT_QUOTES, "UTF-8") ?></small></td>
+                            <td><strong><?= htmlspecialchars($producto["nombre"], ENT_QUOTES, "UTF-8") ?></strong><small><?= htmlspecialchars($producto["codigobarra"] ?: "Sin código", ENT_QUOTES, "UTF-8") ?></small></td>
                             <td><?= htmlspecialchars((string) $producto["stock"], ENT_QUOTES, "UTF-8") ?> unid.</td>
                             <td><span class="ranking-sales"><?= htmlspecialchars((string) $producto["total_vendido"], ENT_QUOTES, "UTF-8") ?> ventas</span></td>
                         </tr>

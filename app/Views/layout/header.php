@@ -12,6 +12,9 @@
     </div>
     <div class="topbar-user">
         <span><?= htmlspecialchars($_SESSION["nombre"] ?? "") ?></span>
-        <a class="logout-link" href="index.php?route=logout">Cerrar sesion</a>
+        <form class="logout-form" action="index.php?route=logout" method="post">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION["logout_csrf"] ?? "", ENT_QUOTES, "UTF-8") ?>">
+            <button class="logout-link" type="submit">Cerrar sesión</button>
+        </form>
     </div>
 </header>

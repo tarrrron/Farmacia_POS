@@ -13,7 +13,18 @@ class VentaController
     public function index(): void
     {
         $menuOptions = $this->requireAccess("GET");
-        $sales = $this->sales->all();
+        $from = $this->dateFromQuery("desde");
+        $to = $this->dateFromQuery("hasta");
+        if ($from !== null && $to !== null && $from > $to) {
+            [$from, $to] = [$to, $from];
+        }
+        $sales = $this->sales->all($from, $to);
+        $salesTotal = 0.0;
+        foreach ($sales as $row) {
+            if ((int) $row["estado"] === 1) {
+                $salesTotal += (float) $row["total"];
+            }
+        }
         $message = $_SESSION["venta_message"] ?? ""; unset($_SESSION["venta_message"]);
         $error = $_SESSION["venta_error"] ?? ""; unset($_SESSION["venta_error"]);
         $csrfToken = $_SESSION["venta_csrf"];
@@ -98,6 +109,13 @@ class VentaController
 
         header("Location: index.php?route=module/ventas", true, 303);
         exit;
+    }
+
+    private function dateFromQuery(string $key): ?string
+    {
+        $value = trim((string) ($_GET[$key] ?? ""));
+        $date = $value !== "" ? DateTime::createFromFormat("!Y-m-d", $value) : false;
+        return $date && $date->format("Y-m-d") === $value ? $value : null;
     }
 
     private function requireAccess(string $method): array

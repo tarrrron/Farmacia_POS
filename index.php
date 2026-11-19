@@ -45,6 +45,17 @@ $clienteController = new ClienteController(new Client($db), new Profile($db));
 $ventaController = new VentaController(new Sale($db), new Profile($db));
 $creditoController = new CreditoController(new Credit($db), new Profile($db));
 $inventarioController = new InventarioController(new Inventario($db),new Profile($db));
+// Si el usuario fue desactivado mientras tenía la sesión abierta, se cierra su sesión.
+if (isset($_SESSION["idusuario"]) && !(new User($db))->isActive((int) $_SESSION["idusuario"])) {
+    $_SESSION = [];
+    session_destroy();
+    header("Location: index.php");
+    exit;
+}
+if (isset($_SESSION["idusuario"])) {
+    $_SESSION["logout_csrf"] ??= bin2hex(random_bytes(32));
+}
+
 $route = $_GET["route"] ?? (isset($_SESSION["idusuario"]) ? "dashboard" : "login");
 
 if ($route === "login" && $_SERVER["REQUEST_METHOD"] === "POST") {
@@ -157,7 +168,11 @@ if (isset($clienteRoutes[$route])) {
 $creditoRoutes = [
     "module/creditos" => "index",
     "module/creditos/ver" => "show",
-    "module/creditos/pagar" => "pay"
+    "module/creditos/pagar" => "pay",
+    "module/creditos/anular-pago" => "cancelPayment",
+    "module/creditos/prorrogar" => "extend",
+    "module/creditos/cliente" => "client",
+    "module/creditos/constancia" => "receipt"
 ];
 
 if (isset($creditoRoutes[$route])) {

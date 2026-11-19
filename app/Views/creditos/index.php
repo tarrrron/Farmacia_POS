@@ -1,3 +1,4 @@
+<?php require __DIR__ . "/_helpers.php"; ?>
 <div class="page-title">
     <h1>Créditos</h1>
     <p>Controla las ventas a crédito y el saldo pendiente de cada cliente.</p>
@@ -6,7 +7,7 @@
 <section class="summary-grid dashboard-summary">
     <article class="summary-card card-blue"><span>Total por cobrar</span><strong>S/ <?= number_format($summary["por_cobrar"], 2) ?></strong><small>Saldo de créditos pendientes</small></article>
     <article class="summary-card card-green"><span>Créditos pendientes</span><strong><?= number_format($summary["pendientes"]) ?></strong><small>Con saldo por cobrar</small></article>
-    <article class="summary-card card-orange"><span>Créditos vencidos</span><strong><?= number_format($summary["vencidos"]) ?></strong><small>Pasaron su fecha de vencimiento</small></article>
+    <article class="summary-card card-orange"><span>Créditos vencidos</span><strong><?= number_format($summary["vencidos"]) ?></strong><small>S/ <?= number_format($summary["monto_vencido"], 2) ?> vencidos</small></article>
     <article class="summary-card card-violet"><span>Clientes con deuda</span><strong><?= number_format($summary["clientes"]) ?></strong><small>Con al menos un crédito pendiente</small></article>
 </section>
 
@@ -21,17 +22,18 @@
             <label for="estado">Estado</label>
             <select id="estado" name="estado" onchange="this.form.submit()">
                 <?php foreach ($statuses as $value => $label): ?>
-                    <option value="<?= htmlspecialchars($value, ENT_QUOTES, "UTF-8") ?>" <?= $status === $value ? "selected" : "" ?>><?= htmlspecialchars($label, ENT_QUOTES, "UTF-8") ?></option>
+                    <option value="<?= $e($value) ?>" <?= $status === $value ? "selected" : "" ?>><?= $e($label) ?></option>
                 <?php endforeach; ?>
             </select>
         </form>
     </div>
 
-    <?php if ($message !== ""): ?><div class="alert alert-success" role="status"><?= htmlspecialchars($message, ENT_QUOTES, "UTF-8") ?></div><?php endif; ?>
-    <?php if ($error !== ""): ?><div class="alert alert-error" role="alert"><?= htmlspecialchars($error, ENT_QUOTES, "UTF-8") ?></div><?php endif; ?>
+    <?php if ($message !== ""): ?><div class="alert alert-success" role="status"><?= $e($message) ?></div><?php endif; ?>
+    <?php if ($error !== ""): ?><div class="alert alert-error" role="alert"><?= $e($error) ?></div><?php endif; ?>
 
+    <input class="table-filter" type="search" data-filter-target="#credits-table" placeholder="Buscar por cliente, DNI/RUC o comprobante..." aria-label="Buscar créditos">
     <div class="table-wrap">
-        <table class="data-table">
+        <table class="data-table" id="credits-table">
             <thead>
                 <tr>
                     <th scope="col">Cliente</th>
@@ -49,25 +51,18 @@
                     <tr><td class="empty-state" colspan="8">No hay créditos para este filtro.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($credits as $credit): ?>
-                    <?php
-                    if ((int) $credit["estado"] === 2) {
-                        $badge = ["is-active", "Pagado"];
-                    } elseif ((int) $credit["estado"] === 0) {
-                        $badge = ["is-muted", "Anulado"];
-                    } elseif ((int) $credit["vencido"] === 1) {
-                        $badge = ["is-danger", "Vencido"];
-                    } else {
-                        $badge = ["is-warning", "Pendiente"];
-                    }
-                    ?>
+                    <?php $badge = $creditBadge($credit); ?>
                     <tr>
                         <td>
-                            <strong><?= htmlspecialchars($credit["cliente"], ENT_QUOTES, "UTF-8") ?></strong>
-                            <small><?= htmlspecialchars($credit["nrodocumento"], ENT_QUOTES, "UTF-8") ?></small>
+                            <a class="text-link" href="index.php?route=module/creditos/cliente&amp;id=<?= (int) $credit["idcliente"] ?>" title="Ver estado de cuenta"><strong><?= $e($credit["cliente"]) ?></strong></a>
+                            <small><?= $e($credit["nrodocumento"]) ?></small>
                         </td>
-                        <td><?= htmlspecialchars(($credit["serie"] ?? "") . "-" . str_pad((string) ($credit["correlativo"] ?? ""), 8, "0", STR_PAD_LEFT), ENT_QUOTES, "UTF-8") ?></td>
-                        <td><?= htmlspecialchars(date("d/m/Y", strtotime($credit["fecha"])), ENT_QUOTES, "UTF-8") ?></td>
-                        <td><?= $credit["fecha_vencimiento"] ? htmlspecialchars(date("d/m/Y", strtotime($credit["fecha_vencimiento"])), ENT_QUOTES, "UTF-8") : "Sin fecha" ?></td>
+                        <td><?= $e($creditInvoice($credit)) ?></td>
+                        <td><?= $e(date("d/m/Y", strtotime($credit["fecha"]))) ?></td>
+                        <td>
+                            <?= $credit["fecha_vencimiento"] ? $e(date("d/m/Y", strtotime($credit["fecha_vencimiento"]))) : "Sin fecha" ?>
+                            <small class="<?= (int) $credit["vencido"] === 1 ? "text-danger" : "" ?>"><?= $e($creditDays($credit)) ?></small>
+                        </td>
                         <td>S/ <?= number_format((float) $credit["monto_total"], 2) ?></td>
                         <td><strong>S/ <?= number_format((float) $credit["saldo"], 2) ?></strong></td>
                         <td><span class="status-badge <?= $badge[0] ?>"><?= $badge[1] ?></span></td>
