@@ -40,10 +40,23 @@ class VentaController
             $_SESSION["venta_error"] = "Revisa los datos de la venta.";
             header("Location: index.php?route=module/ventas/crear", true, 303); exit;
         }
+        $dueDate = null;
+        if ($_POST["formapago"] === "R") {
+            $dueInput = trim((string)($_POST["vencimiento"] ?? ""));
+            $parsed = $dueInput === "" ? false : DateTime::createFromFormat("!Y-m-d", $dueInput);
+            if ($dueInput === "") {
+                $dueDate = (new DateTime("+30 days"))->format("Y-m-d");
+            } elseif (!$parsed || $parsed->format("Y-m-d") !== $dueInput || $parsed < new DateTime("today")) {
+                $_SESSION["venta_error"] = "La fecha de vencimiento del crédito no es válida.";
+                header("Location: index.php?route=module/ventas/crear", true, 303); exit;
+            } else {
+                $dueDate = $dueInput;
+            }
+        }
         $rawItems = $_POST["items"] ?? [];
         if (!is_array($rawItems)) $rawItems = [];
         try {
-            $id = $this->sales->create(["idtipocomprobante"=>$type,"idcliente"=>$client,"formapago"=>$_POST["formapago"]], $rawItems, (int)$_SESSION["idusuario"]);
+            $id = $this->sales->create(["idtipocomprobante"=>$type,"idcliente"=>$client,"formapago"=>$_POST["formapago"],"vencimiento"=>$dueDate], $rawItems, (int)$_SESSION["idusuario"]);
             $_SESSION["venta_message"] = "Venta registrada correctamente.";
             header("Location: index.php?route=module/ventas/ver&id=" . $id, true, 303); exit;
         } catch (Throwable $error) {
