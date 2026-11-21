@@ -68,10 +68,13 @@ class Dashboard
     public function creditAlerts(): array
     {
         $row = $this->db->query("SELECT
-                                    COUNT(CASE WHEN fecha_vencimiento < CURDATE() THEN 1 END) AS vencidos,
-                                    COALESCE(SUM(CASE WHEN fecha_vencimiento < CURDATE() THEN saldo END), 0) AS monto_vencido,
-                                    COUNT(CASE WHEN fecha_vencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) THEN 1 END) AS por_vencer
-                                 FROM credito WHERE estado = 1")->fetch(PDO::FETCH_ASSOC);
+                                    COUNT(CASE WHEN c.fecha_vencimiento < CURDATE() THEN 1 END) AS vencidos,
+                                    COALESCE(SUM(CASE WHEN c.fecha_vencimiento < CURDATE() THEN (
+                                        SELECT SUM(q.saldo) FROM credito_cuota q
+                                        WHERE q.idcredito = c.idcredito AND q.estado = 1 AND q.fecha_vencimiento < CURDATE()
+                                    ) END), 0) AS monto_vencido,
+                                    COUNT(CASE WHEN c.fecha_vencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) THEN 1 END) AS por_vencer
+                                 FROM credito c WHERE c.estado = 1")->fetch(PDO::FETCH_ASSOC);
 
         return [
             "vencidos" => (int) ($row["vencidos"] ?? 0),

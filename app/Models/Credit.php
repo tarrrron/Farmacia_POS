@@ -17,7 +17,7 @@ class Credit
 
     public function all(string $status = ""): array
     {
-        $sql = "SELECT c.idcredito, c.idventa, c.idcliente, c.monto_total, c.saldo, c.fecha, c.fecha_vencimiento, c.estado,
+        $sql = "SELECT c.idcredito, c.idventa, c.idcliente, c.monto_total, c.saldo, c.fecha, c.fecha_vencimiento, c.estado, c.numero_cuotas,
                        cl.nombre AS cliente, cl.nrodocumento, v.serie, v.correlativo,
                        (c.estado = 1 AND c.fecha_vencimiento IS NOT NULL AND c.fecha_vencimiento < CURDATE()) AS vencido,
                        DATEDIFF(c.fecha_vencimiento, CURDATE()) AS dias
@@ -55,6 +55,11 @@ class Credit
 
         $credit["pagos"] = $this->payments("p.idcredito = :id", ["id" => $id]);
 
+        $statement = $this->db->prepare("SELECT idcuota, numero_cuota, fecha_vencimiento, monto, saldo, estado
+                                         FROM credito_cuota WHERE idcredito = :id ORDER BY numero_cuota");
+        $statement->execute(["id" => $id]);
+        $credit["cuotas"] = $statement->fetchAll(PDO::FETCH_ASSOC);
+
         $statement = $this->db->prepare("SELECT pr.fecha_anterior, pr.fecha_nueva, pr.motivo, pr.fecha, u.nombre AS usuario
                                          FROM credito_prorroga pr
                                          INNER JOIN usuario u ON u.idusuario = pr.idusuario
@@ -90,7 +95,7 @@ class Credit
             return null;
         }
 
-        $statement = $this->db->prepare("SELECT c.idcredito, c.idventa, c.monto_total, c.saldo, c.fecha, c.fecha_vencimiento, c.estado,
+        $statement = $this->db->prepare("SELECT c.idcredito, c.idventa, c.monto_total, c.saldo, c.fecha, c.fecha_vencimiento, c.estado, c.numero_cuotas,
                                                 v.serie, v.correlativo,
                                                 (c.estado = 1 AND c.fecha_vencimiento IS NOT NULL AND c.fecha_vencimiento < CURDATE()) AS vencido,
                                                 DATEDIFF(c.fecha_vencimiento, CURDATE()) AS dias
@@ -109,7 +114,10 @@ class Credit
             if ((int) $credit["estado"] === 1) {
                 $client["deuda"] += (float) $credit["saldo"];
                 if ((int) $credit["vencido"] === 1) {
-                    $client["vencido"] += (float) $credit["saldo"];
+                    $overdue = $this->db->prepare("SELECT COALESCE(SUM(saldo), 0) FROM credito_cuota
+                                                   WHERE idcredito = :credito AND estado = 1 AND fecha_vencimiento < CURDATE()");
+                    $overdue->execute(["credito" => $credit["idcredito"]]);
+                    $client["vencido"] += (float) $overdue->fetchColumn();
                 }
             }
         }
@@ -130,7 +138,7 @@ class Credit
 
         $this->db->beginTransaction();
         try {
-            $query = $this->db->prepare("SELECT saldo, estado FROM credito WHERE idcredito = :id FOR UPDATE");
+            $query = $this->db->prepare("SELECT saldo, estado, fecha_vencimiento FROM credito WHERE idcredito = :id FOR UPDATE");
             $query->execute(["id" => $creditId]);
             $credit = $query->fetch(PDO::FETCH_ASSOC);
             if (!$credit || (int) $credit["estado"] !== 1) {
@@ -146,6 +154,13 @@ class Credit
                 throw new RuntimeException("El pago no puede ser mayor al saldo pendiente (S/ " . $this->fromCents($balance) . ").");
             }
 
+            $quotaQuery = $this->db->prepare("SELECT idcuota, saldo FROM credito_cuota
+                                              WHERE idcredito = :id AND estado = 1
+                                              ORDER BY fecha_vencimiento, numero_cuota FOR UPDATE");
+            $quotaQuery->execute(["id" => $creditId]);
+            $quotas = $quotaQuery->fetchAll(PDO::FETCH_ASSOC);
+            if (!$quotas) throw new RuntimeException("Este crédito no tiene un cronograma de cuotas. Ejecuta la migración 004_credit_cuotas.sql.");
+
             $insert = $this->db->prepare("INSERT INTO pago_credito (idcredito, idusuario, monto, metodo_pago, nro_operacion, observacion, estado)
                                           VALUES (:credito, :usuario, :monto, :metodo, :operacion, :observacion, 1)");
             $insert->execute([
@@ -158,11 +173,27 @@ class Credit
             ]);
             $paymentId = (int) $this->db->lastInsertId();
 
+            $allocation = $this->db->prepare("INSERT INTO pago_credito_cuota (idpago, idcuota, monto) VALUES (:pago, :cuota, :monto)");
+            $quotaUpdate = $this->db->prepare("UPDATE credito_cuota SET saldo = :saldo, estado = :estado WHERE idcuota = :id");
+            $remainingPayment = $payment;
+            foreach ($quotas as $quota) {
+                if ($remainingPayment <= 0) break;
+                $quotaBalance = $this->toCents((string) $quota["saldo"]);
+                $applied = min($quotaBalance, $remainingPayment);
+                $newQuotaBalance = $quotaBalance - $applied;
+                $allocation->execute(["pago" => $paymentId, "cuota" => $quota["idcuota"], "monto" => $this->fromCents($applied)]);
+                $quotaUpdate->execute(["saldo" => $this->fromCents($newQuotaBalance), "estado" => $newQuotaBalance === 0 ? 2 : 1, "id" => $quota["idcuota"]]);
+                $remainingPayment -= $applied;
+            }
+            if ($remainingPayment !== 0) throw new RuntimeException("El cronograma de cuotas no coincide con el saldo del crédito.");
+
             $newBalance = $balance - $payment;
-            $update = $this->db->prepare("UPDATE credito SET saldo = :saldo, estado = :estado WHERE idcredito = :id");
+            $nextDue = $this->nextDueDate($creditId, (string) $credit["fecha_vencimiento"]);
+            $update = $this->db->prepare("UPDATE credito SET saldo = :saldo, estado = :estado, fecha_vencimiento = :vencimiento WHERE idcredito = :id");
             $update->execute([
                 "saldo" => $this->fromCents($newBalance),
                 "estado" => $newBalance === 0 ? 2 : 1,
+                "vencimiento" => $nextDue,
                 "id" => $creditId
             ]);
 
@@ -199,13 +230,30 @@ class Credit
                 throw new RuntimeException("El saldo resultante superaría el monto del crédito.");
             }
 
+            $allocations = $this->db->prepare("SELECT a.idcuota, a.monto, q.saldo FROM pago_credito_cuota a
+                                               INNER JOIN credito_cuota q ON q.idcuota = a.idcuota
+                                               WHERE a.idpago = :pago FOR UPDATE");
+            $allocations->execute(["pago" => $paymentId]);
+            $allocationRows = $allocations->fetchAll(PDO::FETCH_ASSOC);
+            if (!$allocationRows) {
+                throw new RuntimeException("No se encontró la distribución del pago en las cuotas.");
+            }
+            $quotaUpdate = $this->db->prepare("UPDATE credito_cuota SET saldo = :saldo, estado = 1 WHERE idcuota = :id");
+            foreach ($allocationRows as $row) {
+                $quotaUpdate->execute([
+                    "saldo" => $this->fromCents($this->toCents((string) $row["saldo"]) + $this->toCents((string) $row["monto"])),
+                    "id" => $row["idcuota"]
+                ]);
+            }
+
             $update = $this->db->prepare("UPDATE pago_credito
                                           SET estado = 0, motivo_anulacion = :motivo, fecha_anulacion = NOW(), idusuario_anula = :usuario
                                           WHERE idpago = :id");
             $update->execute(["motivo" => $reason, "usuario" => $userId, "id" => $paymentId]);
 
-            $update = $this->db->prepare("UPDATE credito SET saldo = :saldo, estado = 1 WHERE idcredito = :id");
-            $update->execute(["saldo" => $this->fromCents($newBalance), "id" => $payment["idcredito"]]);
+            $nextDue = $this->nextDueDate((int) $payment["idcredito"], date("Y-m-d"));
+            $update = $this->db->prepare("UPDATE credito SET saldo = :saldo, estado = 1, fecha_vencimiento = :vencimiento WHERE idcredito = :id");
+            $update->execute(["saldo" => $this->fromCents($newBalance), "vencimiento" => $nextDue, "id" => $payment["idcredito"]]);
 
             $this->db->commit();
             return (int) $payment["idcredito"];
@@ -241,6 +289,16 @@ class Credit
                 "motivo" => $reason
             ]);
 
+            $quotaQuery = $this->db->prepare("SELECT idcuota FROM credito_cuota
+                                              WHERE idcredito = :id AND estado = 1
+                                              ORDER BY numero_cuota FOR UPDATE");
+            $quotaQuery->execute(["id" => $creditId]);
+            $openQuotas = $quotaQuery->fetchAll(PDO::FETCH_COLUMN);
+            $quotaUpdate = $this->db->prepare("UPDATE credito_cuota SET fecha_vencimiento = :fecha WHERE idcuota = :id");
+            foreach ($openQuotas as $index => $quotaId) {
+                $quotaUpdate->execute(["fecha" => $this->monthlyDate($newDate, $index), "id" => $quotaId]);
+            }
+
             $update = $this->db->prepare("UPDATE credito SET fecha_vencimiento = :fecha WHERE idcredito = :id");
             $update->execute(["fecha" => $newDate, "id" => $creditId]);
 
@@ -256,12 +314,16 @@ class Credit
     public function summary(): array
     {
         $row = $this->db->query("SELECT
-                                    COALESCE(SUM(CASE WHEN estado = 1 THEN saldo END), 0) AS por_cobrar,
-                                    COUNT(CASE WHEN estado = 1 THEN 1 END) AS pendientes,
-                                    COUNT(CASE WHEN estado = 1 AND fecha_vencimiento < CURDATE() THEN 1 END) AS vencidos,
-                                    COALESCE(SUM(CASE WHEN estado = 1 AND fecha_vencimiento < CURDATE() THEN saldo END), 0) AS monto_vencido,
-                                    COUNT(DISTINCT CASE WHEN estado = 1 THEN idcliente END) AS clientes
-                                 FROM credito")->fetch(PDO::FETCH_ASSOC);
+                                    COALESCE(SUM(CASE WHEN c.estado = 1 THEN c.saldo END), 0) AS por_cobrar,
+                                    COUNT(CASE WHEN c.estado = 1 THEN 1 END) AS pendientes,
+                                    COUNT(CASE WHEN c.estado = 1 AND EXISTS (
+                                        SELECT 1 FROM credito_cuota q WHERE q.idcredito = c.idcredito AND q.estado = 1 AND q.fecha_vencimiento < CURDATE()
+                                    ) THEN 1 END) AS vencidos,
+                                    COALESCE(SUM(CASE WHEN c.estado = 1 THEN (
+                                        SELECT SUM(q.saldo) FROM credito_cuota q WHERE q.idcredito = c.idcredito AND q.estado = 1 AND q.fecha_vencimiento < CURDATE()
+                                    ) END), 0) AS monto_vencido,
+                                    COUNT(DISTINCT CASE WHEN c.estado = 1 THEN c.idcliente END) AS clientes
+                                 FROM credito c")->fetch(PDO::FETCH_ASSOC);
 
         return [
             "por_cobrar" => (float) ($row["por_cobrar"] ?? 0),
@@ -277,7 +339,12 @@ class Credit
         $statement = $this->db->prepare("SELECT p.idpago, p.idcredito, p.monto, p.metodo_pago, p.nro_operacion, p.fecha, p.observacion,
                                                 p.estado, p.motivo_anulacion, p.fecha_anulacion,
                                                 u.nombre AS usuario, ua.nombre AS usuario_anula,
-                                                v.serie, v.correlativo
+                                                v.serie, v.correlativo,
+                                                (SELECT GROUP_CONCAT(CONCAT('Cuota ', q.numero_cuota, ': S/ ', FORMAT(a.monto, 2))
+                                                                     ORDER BY q.numero_cuota SEPARATOR ' · ')
+                                                 FROM pago_credito_cuota a
+                                                 INNER JOIN credito_cuota q ON q.idcuota = a.idcuota
+                                                 WHERE a.idpago = p.idpago) AS cuotas_aplicadas
                                          FROM pago_credito p
                                          INNER JOIN credito c ON c.idcredito = p.idcredito
                                          INNER JOIN venta v ON v.idventa = c.idventa
@@ -298,5 +365,21 @@ class Credit
     private function fromCents(int $cents): string
     {
         return intdiv($cents, 100) . "." . str_pad((string) ($cents % 100), 2, "0", STR_PAD_LEFT);
+    }
+
+    private function nextDueDate(int $creditId, string $fallback): string
+    {
+        $query = $this->db->prepare("SELECT MIN(fecha_vencimiento) FROM credito_cuota WHERE idcredito = :id AND estado = 1");
+        $query->execute(["id" => $creditId]);
+        $date = $query->fetchColumn();
+        return $date !== false && $date !== null ? (string) $date : $fallback;
+    }
+
+    private function monthlyDate(string $date, int $months): string
+    {
+        $first = new DateTimeImmutable($date);
+        $day = (int) $first->format("j");
+        $month = $first->modify("first day of this month")->modify("+" . $months . " months");
+        return $month->setDate((int) $month->format("Y"), (int) $month->format("n"), min($day, (int) $month->format("t")))->format("Y-m-d");
     }
 }

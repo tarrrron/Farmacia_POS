@@ -166,6 +166,8 @@ CREATE TABLE `venta` (
   `serie` varchar(5) DEFAULT NULL,
   `correlativo` int(11) DEFAULT NULL,
   `total` decimal(11,2) NOT NULL DEFAULT 0.00,
+  `monto_recibido` decimal(11,2) NOT NULL DEFAULT 0.00,
+  `vuelto` decimal(11,2) NOT NULL DEFAULT 0.00,
   `idusuario` int(11) NOT NULL,
   `estado` tinyint(1) DEFAULT 1,
   `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
@@ -238,6 +240,7 @@ CREATE TABLE `credito` (
   `saldo` decimal(11,2) NOT NULL,
   `fecha` datetime NOT NULL DEFAULT current_timestamp(),
   `fecha_vencimiento` date DEFAULT NULL,
+  `numero_cuotas` tinyint(3) unsigned NOT NULL DEFAULT 1,
   `estado` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1 = pendiente, 2 = pagado, 0 = anulado',
   PRIMARY KEY (`idcredito`),
   UNIQUE KEY `uk_credito_venta` (`idventa`),
@@ -245,6 +248,20 @@ CREATE TABLE `credito` (
   KEY `idx_credito_estado` (`estado`),
   CONSTRAINT `fk_credito_venta` FOREIGN KEY (`idventa`) REFERENCES `venta` (`idventa`),
   CONSTRAINT `fk_credito_cliente` FOREIGN KEY (`idcliente`) REFERENCES `cliente` (`idcliente`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `credito_cuota` (
+  `idcuota` int(11) NOT NULL AUTO_INCREMENT,
+  `idcredito` int(11) NOT NULL,
+  `numero_cuota` tinyint(3) unsigned NOT NULL,
+  `fecha_vencimiento` date NOT NULL,
+  `monto` decimal(11,2) NOT NULL,
+  `saldo` decimal(11,2) NOT NULL,
+  `estado` tinyint(1) NOT NULL DEFAULT 1 COMMENT '1 = pendiente, 2 = pagada, 0 = anulada',
+  PRIMARY KEY (`idcuota`),
+  UNIQUE KEY `uk_credito_cuota_numero` (`idcredito`, `numero_cuota`),
+  KEY `idx_credito_cuota_vencimiento` (`fecha_vencimiento`, `estado`),
+  CONSTRAINT `fk_credito_cuota_credito` FOREIGN KEY (`idcredito`) REFERENCES `credito` (`idcredito`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `pago_credito` (
@@ -265,6 +282,18 @@ CREATE TABLE `pago_credito` (
   KEY `idx_pago_usuario` (`idusuario`),
   CONSTRAINT `fk_pago_credito` FOREIGN KEY (`idcredito`) REFERENCES `credito` (`idcredito`),
   CONSTRAINT `fk_pago_usuario` FOREIGN KEY (`idusuario`) REFERENCES `usuario` (`idusuario`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `pago_credito_cuota` (
+  `idpago_cuota` int(11) NOT NULL AUTO_INCREMENT,
+  `idpago` int(11) NOT NULL,
+  `idcuota` int(11) NOT NULL,
+  `monto` decimal(11,2) NOT NULL,
+  PRIMARY KEY (`idpago_cuota`),
+  UNIQUE KEY `uk_pago_credito_cuota` (`idpago`, `idcuota`),
+  KEY `idx_pago_cuota_cuota` (`idcuota`),
+  CONSTRAINT `fk_pago_credito_cuota_pago` FOREIGN KEY (`idpago`) REFERENCES `pago_credito` (`idpago`),
+  CONSTRAINT `fk_pago_credito_cuota_cuota` FOREIGN KEY (`idcuota`) REFERENCES `credito_cuota` (`idcuota`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `credito_prorroga` (
@@ -343,7 +372,8 @@ INSERT INTO `producto` (`idproducto`, `nombre`, `codigobarra`, `pventa`, `pcompr
 
 INSERT INTO `tipocomprobante` (`idtipocomprobante`, `nombre`, `estado`) VALUES
 (1, 'BOLETA', 1),
-(2, 'FACTURA', 1);
+(2, 'FACTURA', 1),
+(3, 'NOTA DE VENTA', 1);
 
 INSERT INTO `moneda` (`idmoneda`, `nombre`, `simbolo`, `tipo_cambio`, `estado`) VALUES
 (1, 'SOLES', 'S/', 1.0000, 1),
@@ -354,6 +384,7 @@ INSERT INTO `usuario` (`idusuario`, `nombre`, `usuario`, `clave`, `idperfil`, `e
 
 INSERT INTO `serie` (`idserie`, `idtipocomprobante`, `serie`, `correlativo`, `estado`) VALUES
 (1, 1, 'B001', 0, 1),
-(2, 2, 'F001', 0, 1);
+(2, 2, 'F001', 0, 1),
+(3, 3, 'NV01', 0, 1);
 
 COMMIT;

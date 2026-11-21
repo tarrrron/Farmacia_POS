@@ -41,6 +41,7 @@
                     <th scope="col">Fecha</th>
                     <th scope="col">Vencimiento</th>
                     <th scope="col">Monto</th>
+                    <th scope="col">Cuotas</th>
                     <th scope="col">Saldo</th>
                     <th scope="col">Estado</th>
                     <th scope="col">Acciones</th>
@@ -48,7 +49,7 @@
             </thead>
             <tbody>
                 <?php if (!$credits): ?>
-                    <tr><td class="empty-state" colspan="8">No hay créditos para este filtro.</td></tr>
+                    <tr><td class="empty-state" colspan="9">No hay créditos para este filtro.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($credits as $credit): ?>
                     <?php $badge = $creditBadge($credit); ?>
@@ -64,6 +65,7 @@
                             <small class="<?= (int) $credit["vencido"] === 1 ? "text-danger" : "" ?>"><?= $e($creditDays($credit)) ?></small>
                         </td>
                         <td>S/ <?= number_format((float) $credit["monto_total"], 2) ?></td>
+                        <td><?= (int) $credit["numero_cuotas"] ?></td>
                         <td><strong>S/ <?= number_format((float) $credit["saldo"], 2) ?></strong></td>
                         <td><span class="status-badge <?= $badge[0] ?>"><?= $badge[1] ?></span></td>
                         <td class="action-cell">

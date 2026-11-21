@@ -173,6 +173,9 @@ if (saleForm) {
     const lookupButton = document.querySelector("#sale-client-lookup");
     const lookupStatus = document.querySelector("#sale-client-lookup-status");
     const receipt = document.querySelector("#sale-document");
+    const installments = document.querySelector("#sale-installments");
+    const installmentPreview = document.querySelector("#sale-installment-preview");
+    const minimumCredit = Number(saleForm.dataset.minimumCredit || 100);
     let saleTotal = 0;
 
     function currentTotal() {
@@ -181,18 +184,56 @@ if (saleForm) {
         return Math.round(total * 100) / 100;
     }
 
+    function updateInstallmentPreview() {
+        const count = Number(installments.value || 1);
+        const totalCents = Math.round(saleTotal * 100);
+        const base = Math.floor(totalCents / count);
+        const extra = totalCents % count;
+        if (saleTotal < minimumCredit) {
+            installmentPreview.textContent = "Disponible desde " + money(minimumCredit) + ".";
+            return;
+        }
+        const firstDate = dueDate.value ? new Date(dueDate.value + "T00:00:00") : new Date();
+        const originalDay = firstDate.getDate();
+        const schedule = Array.from({length: count}, (_, index) => {
+            const month = new Date(firstDate.getFullYear(), firstDate.getMonth() + index, 1);
+            const lastDay = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+            month.setDate(Math.min(originalDay, lastDay));
+            const due = String(month.getDate()).padStart(2, "0") + "/" + String(month.getMonth() + 1).padStart(2, "0");
+            const amount = money((base + (index < extra ? 1 : 0)) / 100);
+            return String(index + 1) + ": " + amount + " · " + due;
+        });
+        installmentPreview.textContent = "Plan mensual: " + schedule.join("  |  ");
+    }
+
+    function updateCreditEligibility() {
+        const creditOption = payment.querySelector("option[value='R']");
+        const canUseCredit = saleTotal >= minimumCredit;
+        creditOption.disabled = !canUseCredit;
+        if (!canUseCredit && payment.value === "R") {
+            payment.value = "C";
+            togglePayment();
+        }
+        updateInstallmentPreview();
+    }
+
     function updateChange() {
         const value = received.value.trim();
-        if (payment.value !== "C" || value === "" || !cart.size) { changeBox.hidden = true; return true; }
-        const amount = Number(value);
+        if (payment.value !== "C" || !cart.size) { changeBox.hidden = true; return true; }
         changeBox.hidden = false;
+        if (value === "") {
+            changeBox.className = "sale-change is-short";
+            changeBox.textContent = "Ingresa el monto recibido";
+            return false;
+        }
+        const amount = Number(value);
         if (!Number.isFinite(amount) || amount < saleTotal) {
             changeBox.className = "sale-change is-short";
             changeBox.textContent = `Faltan ${money(Math.max(0, saleTotal - (Number.isFinite(amount) ? amount : 0)))}`;
             return false;
         }
         changeBox.className = "sale-change";
-        changeBox.textContent = `Vuelto: ${money(amount - saleTotal)}`;
+        changeBox.textContent = `Vuelto: ${money(Math.round((amount - saleTotal) * 100) / 100)}`;
         return true;
     }
 
@@ -223,7 +264,7 @@ if (saleForm) {
     function togglePayment() {
         let isCredit = payment.value === "R";
         const overdue = Number(clientSelect.selectedOptions[0]?.dataset.vencida || 0);
-        if (isCredit && overdue > 0) {
+        if (isCredit && (overdue > 0 || saleTotal < minimumCredit)) {
             payment.value = "C";
             isCredit = false;
         }
@@ -241,6 +282,7 @@ if (saleForm) {
         document.querySelector("#sale-total").textContent = money(saleTotal);
         document.querySelector("#sale-count").textContent = `${quantity} ${quantity === 1 ? "producto" : "productos"}`;
         document.querySelector("#sale-submit").disabled = cart.size === 0;
+        updateCreditEligibility();
         updateChange();
     }
 
@@ -259,6 +301,8 @@ if (saleForm) {
         if (event.key === "Enter" && event.target.tagName === "INPUT") event.preventDefault();
     });
     payment.addEventListener("change", togglePayment);
+    installments.addEventListener("change", updateInstallmentPreview);
+    dueDate.addEventListener("change", updateInstallmentPreview);
     received.addEventListener("input", updateChange);
     clientSelect.addEventListener("change", updateClientDebt);
     clientSelect.addEventListener("change", syncClientRequirements);
@@ -318,7 +362,8 @@ if (saleForm) {
         const date = new Date(); date.setDate(date.getDate() + Number(button.dataset.days));
         dueDate.value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
     }));
-    togglePayment(); updateClientDebt(); syncClientRequirements();
+    document.querySelectorAll("[data-days]").forEach((button) => button.addEventListener("click", updateInstallmentPreview));
+    togglePayment(); updateClientDebt(); syncClientRequirements(); updateCreditEligibility();
 
     search.addEventListener("input", renderResults);
     document.addEventListener("click", (event) => { if (!results.contains(event.target) && event.target !== search) results.innerHTML = ""; });
@@ -442,6 +487,19 @@ if (actionDialog) {
 }
 
 // Mensaje de éxito breve en formato toast.
+let savedSuccessMessage = "";
+try {
+    savedSuccessMessage = sessionStorage.getItem("farmacia-success-toast") || "";
+    if (savedSuccessMessage) sessionStorage.removeItem("farmacia-success-toast");
+} catch (_) {}
+if (savedSuccessMessage) {
+    const toast = document.createElement("div");
+    toast.className = "alert alert-success";
+    toast.setAttribute("role", "status");
+    toast.textContent = savedSuccessMessage;
+    document.querySelector("main")?.prepend(toast);
+}
+
 document.querySelectorAll(".alert-success[role='status']").forEach((alert) => {
     alert.classList.add("success-toast");
     window.setTimeout(() => alert.classList.add("is-visible"), 30);
@@ -523,6 +581,10 @@ if (editModal) {
                 return;
             }
             if (response.ok) {
+                const successAlert = new DOMParser().parseFromString(html, "text/html").querySelector(".alert-success[role='status']");
+                if (successAlert?.textContent.trim()) {
+                    try { sessionStorage.setItem("farmacia-success-toast", successAlert.textContent.trim()); } catch (_) {}
+                }
                 closeEditModal();
                 window.location.reload();
                 return;

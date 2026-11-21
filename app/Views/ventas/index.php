@@ -37,7 +37,7 @@ $filtered = $from !== "" || $to !== "";
         <td><?= (int)$sale["productos"] ?></td><td><?= ($sale["formapago"] ?? "C") === "R" ? "Crédito" : "Contado" ?></td>
         <td><strong>S/ <?= number_format((float)$sale["total"], 2) ?></strong></td><td><?= $e($sale["vendedor"]) ?></td>
         <td><span class="status-badge <?= (int)$sale["estado"] === 1 ? "is-active" : "is-muted" ?>"><?= (int)$sale["estado"] === 1 ? "Activa" : "Anulada" ?></span></td>
-        <td class="action-cell"><a class="btn btn-light btn-sm" href="index.php?route=module/ventas/ver&amp;id=<?= (int)$sale["idventa"] ?>">Ver</a>
+        <td class="action-cell"><a class="btn btn-light btn-sm" href="index.php?route=module/ventas/ticket&amp;id=<?= (int)$sale["idventa"] ?>">Ticket</a>
             <?php if ((int)$sale["estado"] === 1): ?>
                 <form action="index.php?route=module/ventas/anular" method="post">
                     <input type="hidden" name="csrf_token" value="<?= $e($csrfToken) ?>">

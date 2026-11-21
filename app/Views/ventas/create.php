@@ -1,6 +1,6 @@
 <div class="page-title"><h1>Nueva venta</h1><p>Agrega productos al detalle y confirma el cobro.</p></div>
 <?php if ($error !== ""): ?><div class="alert alert-error" role="alert"><?= htmlspecialchars($error, ENT_QUOTES, "UTF-8") ?></div><?php endif; ?>
-<form class="sale-layout" action="index.php?route=module/ventas/guardar" method="post" id="sale-form" data-lookup-url="index.php?route=module/ventas/consultar-documento">
+<form class="sale-layout" action="index.php?route=module/ventas/guardar" method="post" id="sale-form" data-lookup-url="index.php?route=module/ventas/consultar-documento" data-minimum-credit="<?= htmlspecialchars((string)$minimumCreditAmount, ENT_QUOTES, "UTF-8") ?>">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, "UTF-8") ?>">
     <aside class="panel sale-checkout">
         <h2>Datos de venta</h2>
@@ -50,29 +50,41 @@
                 </div>
             </details>
             <div class="sale-field">
-                <label for="sale-document">Comprobante</label>
+                <label for="sale-document">Tipo de comprobante</label>
                 <select name="idtipocomprobante" id="sale-document" required><?php foreach ($documentTypes as $type): ?><option value="<?= (int)$type["idtipocomprobante"] ?>" data-kind="<?= htmlspecialchars(strtoupper((string)$type["nombre"]), ENT_QUOTES, "UTF-8") ?>"><?= htmlspecialchars($type["nombre"], ENT_QUOTES, "UTF-8") ?></option><?php endforeach; ?></select>
             </div>
             <div class="sale-field">
                 <label for="sale-payment">Forma de pago</label>
                 <select name="formapago" id="sale-payment"><option value="C">Contado</option><option value="R">Crédito</option></select>
+                <small class="sale-credit-threshold">Crédito disponible desde S/ <?= number_format($minimumCreditAmount, 2) ?>.</small>
             </div>
             <div id="sale-credit-fields" class="sale-field-wide" hidden>
-                <label for="sale-due-date">Vencimiento del crédito</label>
-                <div class="sale-credit-row">
-                    <input type="date" name="vencimiento" id="sale-due-date" min="<?= date("Y-m-d") ?>" value="<?= date("Y-m-d", strtotime("+30 days")) ?>">
-                    <div class="quick-days" role="group" aria-label="Plazos rápidos">
+                <div class="sale-credit-plan">
+                    <div class="sale-field">
+                        <label for="sale-installments">Número de cuotas</label>
+                        <select name="numero_cuotas" id="sale-installments">
+                            <?php for ($count = 1; $count <= $maximumCreditInstallments; $count++): ?>
+                                <option value="<?= $count ?>"><?= $count ?> <?= $count === 1 ? "cuota" : "cuotas" ?></option>
+                            <?php endfor; ?>
+                        </select>
+                        <small id="sale-installment-preview" class="sale-installment-preview"></small>
+                    </div>
+                    <div class="sale-field">
+                        <label for="sale-due-date">Vencimiento de la primera cuota</label>
+                        <input type="date" name="vencimiento" id="sale-due-date" min="<?= date("Y-m-d") ?>" value="<?= date("Y-m-d", strtotime("+30 days")) ?>">
+                    </div>
+                    <div class="quick-days sale-field-wide" role="group" aria-label="Plazos para la primera cuota">
                         <button class="btn btn-light btn-sm" type="button" data-days="15">15 días</button>
                         <button class="btn btn-light btn-sm" type="button" data-days="30">30 días</button>
                         <button class="btn btn-light btn-sm" type="button" data-days="60">60 días</button>
                     </div>
                 </div>
-                <small>Requiere un cliente registrado y sin deudas vencidas.</small>
+                <small>Crédito desde S/ <?= number_format($minimumCreditAmount, 2) ?>. Cuotas mensuales sin intereses; se pagan primero las más antiguas.</small>
             </div>
             <div id="sale-cash-fields" class="sale-field-wide">
-                <label for="sale-received">Monto recibido (opcional)</label>
+                <label for="sale-received">Monto recibido</label>
                 <div class="sale-cash-row">
-                    <input type="number" id="sale-received" min="0" step="0.10" inputmode="decimal" placeholder="0.00">
+                    <input type="number" id="sale-received" name="monto_recibido" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required>
                     <p class="sale-change" id="sale-change" hidden></p>
                 </div>
             </div>
