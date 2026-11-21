@@ -40,6 +40,8 @@ class VentaController
         $products = $this->sales->catalog(); $clients = $this->sales->clients();
         $documentTypes = $this->sales->documentTypes();
         $clientDocumentTypes = $this->sales->clientDocumentTypes();
+        $minimumCreditAmount = Sale::MINIMUM_CREDIT_AMOUNT;
+        $maximumCreditInstallments = Sale::MAX_CREDIT_INSTALLMENTS;
         $csrfToken = $_SESSION["venta_csrf"];
         $error = $_SESSION["venta_error"] ?? ""; unset($_SESSION["venta_error"]);
         $view = __DIR__ . "/../Views/ventas/create.php";
@@ -73,7 +75,14 @@ class VentaController
             header("Location: index.php?route=module/ventas/crear", true, 303); exit;
         }
         $dueDate = null;
+        $installments = 1;
         if ($_POST["formapago"] === "R") {
+            $installmentsInput = filter_var($_POST["numero_cuotas"] ?? null, FILTER_VALIDATE_INT);
+            if ($installmentsInput === false || $installmentsInput < 1 || $installmentsInput > Sale::MAX_CREDIT_INSTALLMENTS) {
+                $_SESSION["venta_error"] = "Selecciona entre 1 y " . Sale::MAX_CREDIT_INSTALLMENTS . " cuotas mensuales.";
+                header("Location: index.php?route=module/ventas/crear", true, 303); exit;
+            }
+            $installments = $installmentsInput;
             $dueInput = trim((string)($_POST["vencimiento"] ?? ""));
             $parsed = $dueInput === "" ? false : DateTime::createFromFormat("!Y-m-d", $dueInput);
             if ($dueInput === "") {
@@ -87,6 +96,11 @@ class VentaController
         }
         $rawItems = $_POST["items"] ?? [];
         if (!is_array($rawItems)) $rawItems = [];
+        $receivedInput = $_POST["monto_recibido"] ?? "";
+        if (!is_string($receivedInput)) {
+            $_SESSION["venta_error"] = "Ingresa un monto recibido válido.";
+            header("Location: index.php?route=module/ventas/crear", true, 303); exit;
+        }
         try {
             $newClient = null;
             $clientInput = $_POST["cliente"] ?? [];
@@ -99,7 +113,9 @@ class VentaController
             if ($clientId === "" && $clientHasDetails) {
                 $newClient = $this->normalizeNewClient($clientInput);
             }
-            $id = $this->sales->create(["idtipocomprobante"=>$type,"idcliente"=>$client,"cliente_nuevo"=>$newClient,"formapago"=>$_POST["formapago"],"vencimiento"=>$dueDate], $rawItems, (int)$_SESSION["idusuario"]);
+            $id = $this->sales->create(["idtipocomprobante"=>$type,"idcliente"=>$client,"cliente_nuevo"=>$newClient,
+                "formapago"=>$_POST["formapago"],"monto_recibido"=>trim($receivedInput),
+                "vencimiento"=>$dueDate,"numero_cuotas"=>$installments], $rawItems, (int)$_SESSION["idusuario"]);
             $_SESSION["venta_message"] = "Venta registrada correctamente.";
             header("Location: index.php?route=module/ventas/ver&id=" . $id, true, 303); exit;
         } catch (Throwable $error) {
@@ -144,6 +160,17 @@ class VentaController
         $message = $_SESSION["venta_message"] ?? ""; unset($_SESSION["venta_message"]);
         $view = __DIR__ . "/../Views/ventas/show.php";
         require __DIR__ . "/../Views/layout/app.php";
+    }
+
+    public function ticket(): void
+    {
+        $this->requireAccess("GET");
+        $id = filter_var($_GET["id"] ?? null, FILTER_VALIDATE_INT, ["options"=>["min_range"=>1]]);
+        $sale = $id !== false ? $this->sales->find($id) : null;
+        if (!$sale) { http_response_code(404); echo "Venta no encontrada."; return; }
+        $receiptConfig = require __DIR__ . "/../../config/receipt.php";
+        $view = __DIR__ . "/../Views/ventas/ticket.php";
+        require $view;
     }
 
     public function cancel(): void

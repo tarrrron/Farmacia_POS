@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FULL HEART | Farmacia</title>
-    <link rel="stylesheet" href="public/css/styles.css?v=20261120-product-filters">
+    <link rel="stylesheet" href="public/css/styles.css?v=20261120-stock-alert-toasts">
 </head>
 <body class="app-body">
     <dialog class="confirm-dialog" id="action-confirmation" aria-labelledby="confirmation-title" aria-describedby="confirmation-message">
@@ -35,6 +35,6 @@
             <?php require __DIR__ . "/footer.php"; ?>
         </div>
     </div>
-    <script src="public/js/app.js?v=20261120-product-filters"></script>
+    <script src="public/js/app.js?v=20261120-stock-alert-toasts"></script>
 </body>
 </html>

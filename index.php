@@ -154,7 +154,8 @@ $ventaRoutes = [
     "module/ventas/guardar" => "store",
     "module/ventas/consultar-documento" => "lookupDocument",
     "module/ventas/anular" => "cancel",
-    "module/ventas/ver" => "show"
+    "module/ventas/ver" => "show",
+    "module/ventas/ticket" => "ticket"
 ];
 
 if (isset($ventaRoutes[$route])) {

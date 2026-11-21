@@ -26,10 +26,37 @@ unset($_SESSION["credito_last_payment"]);
     <article class="summary-card card-violet"><span>Estado</span><strong><span class="status-badge <?= $badge[0] ?>"><?= $badge[1] ?></span></strong><small><?= $e($credit["cliente"] . " · " . $credit["nrodocumento"]) ?></small></article>
 </section>
 
+<section class="panel">
+    <div class="section-toolbar">
+        <div><h2>Plan de cuotas</h2><p><?= (int) $credit["numero_cuotas"] ?> <?= (int) $credit["numero_cuotas"] === 1 ? "cuota mensual" : "cuotas mensuales" ?> · sin intereses</p></div>
+    </div>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead><tr><th scope="col">Cuota</th><th scope="col">Vencimiento</th><th scope="col">Monto</th><th scope="col">Saldo</th><th scope="col">Estado</th></tr></thead>
+            <tbody>
+                <?php foreach ($credit["cuotas"] as $installment): ?>
+                    <?php
+                        $installmentState = (int) $installment["estado"];
+                        $installmentLabel = $installmentState === 2 ? "Pagada" : ($installmentState === 0 ? "Anulada" : ((string) $installment["fecha_vencimiento"] < date("Y-m-d") ? "Vencida" : "Pendiente"));
+                        $installmentBadge = $installmentState === 2 ? "is-active" : ($installmentState === 0 ? "is-muted" : ((string) $installment["fecha_vencimiento"] < date("Y-m-d") ? "is-danger" : "is-warning"));
+                    ?>
+                    <tr>
+                        <td>Cuota <?= (int) $installment["numero_cuota"] ?></td>
+                        <td><?= $e(date("d/m/Y", strtotime($installment["fecha_vencimiento"]))) ?></td>
+                        <td>S/ <?= number_format((float) $installment["monto"], 2) ?></td>
+                        <td><strong>S/ <?= number_format((float) $installment["saldo"], 2) ?></strong></td>
+                        <td><span class="status-badge <?= $installmentBadge ?>"><?= $installmentLabel ?></span></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</section>
+
 <?php if ((int) $credit["estado"] === 1): ?>
 <section class="credit-actions">
     <article class="panel">
-        <div class="section-toolbar"><div><h2>Registrar pago</h2><p>El pago no puede superar el saldo pendiente.</p></div></div>
+        <div class="section-toolbar"><div><h2>Registrar pago</h2><p>El abono se aplica primero a la cuota más antigua y no puede superar el saldo.</p></div></div>
         <form class="form-stack" method="post" action="index.php?route=module/creditos/pagar">
             <input type="hidden" name="csrf_token" value="<?= $e($csrfToken) ?>">
             <input type="hidden" name="id" value="<?= (int) $credit["idcredito"] ?>">
@@ -89,16 +116,17 @@ unset($_SESSION["credito_last_payment"]);
     </div>
     <div class="table-wrap">
         <table class="data-table">
-            <thead><tr><th scope="col">Fecha</th><th scope="col">Monto</th><th scope="col">Método</th><th scope="col">Observación</th><th scope="col">Registrado por</th><th scope="col">Estado</th><th scope="col">Acciones</th></tr></thead>
+            <thead><tr><th scope="col">Fecha</th><th scope="col">Monto</th><th scope="col">Aplicado a</th><th scope="col">Método</th><th scope="col">Observación</th><th scope="col">Registrado por</th><th scope="col">Estado</th><th scope="col">Acciones</th></tr></thead>
             <tbody>
                 <?php if (!$credit["pagos"]): ?>
-                    <tr><td class="empty-state" colspan="7">Aún no hay pagos registrados.</td></tr>
+                    <tr><td class="empty-state" colspan="8">Aún no hay pagos registrados.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($credit["pagos"] as $payment): ?>
                     <?php $active = (int) $payment["estado"] === 1; ?>
                     <tr class="<?= $active ? "" : "is-cancelled" ?>">
                         <td><?= $e(date("d/m/Y H:i", strtotime($payment["fecha"]))) ?></td>
                         <td><strong>S/ <?= number_format((float) $payment["monto"], 2) ?></strong></td>
+                        <td><?= $e($payment["cuotas_aplicadas"] ?: "—") ?></td>
                         <td><?= $e($paymentMethods[$payment["metodo_pago"]] ?? $payment["metodo_pago"]) ?><?php if ($payment["nro_operacion"]): ?><small>Op. <?= $e($payment["nro_operacion"]) ?></small><?php endif; ?></td>
                         <td><?= $e($payment["observacion"] ?? "—") ?><?php if (!$active): ?><small>Anulado: <?= $e($payment["motivo_anulacion"]) ?> (<?= $e($payment["usuario_anula"] ?? "") ?>)</small><?php endif; ?></td>
                         <td><?= $e($payment["usuario"]) ?></td>

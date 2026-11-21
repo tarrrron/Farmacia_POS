@@ -21,10 +21,10 @@
     </div>
     <div class="table-wrap">
         <table class="data-table">
-            <thead><tr><th scope="col">Venta</th><th scope="col">Fecha</th><th scope="col">Vencimiento</th><th scope="col">Monto</th><th scope="col">Saldo</th><th scope="col">Estado</th><th scope="col" class="no-print">Acciones</th></tr></thead>
+            <thead><tr><th scope="col">Venta</th><th scope="col">Fecha</th><th scope="col">Vencimiento</th><th scope="col">Cuotas</th><th scope="col">Monto</th><th scope="col">Saldo</th><th scope="col">Estado</th><th scope="col" class="no-print">Acciones</th></tr></thead>
             <tbody>
                 <?php if (!$account["creditos"]): ?>
-                    <tr><td class="empty-state" colspan="7">El cliente no tiene créditos registrados.</td></tr>
+                    <tr><td class="empty-state" colspan="8">El cliente no tiene créditos registrados.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($account["creditos"] as $credit): ?>
                     <?php $badge = $creditBadge($credit); ?>
@@ -32,6 +32,7 @@
                         <td><?= $e($creditInvoice($credit)) ?></td>
                         <td><?= $e(date("d/m/Y", strtotime($credit["fecha"]))) ?></td>
                         <td><?= $credit["fecha_vencimiento"] ? $e(date("d/m/Y", strtotime($credit["fecha_vencimiento"]))) : "Sin fecha" ?><small><?= $e($creditDays($credit)) ?></small></td>
+                        <td><?= (int) $credit["numero_cuotas"] ?></td>
                         <td>S/ <?= number_format((float) $credit["monto_total"], 2) ?></td>
                         <td><strong>S/ <?= number_format((float) $credit["saldo"], 2) ?></strong></td>
                         <td><span class="status-badge <?= $badge[0] ?>"><?= $badge[1] ?></span></td>
@@ -47,16 +48,17 @@
     <div class="section-toolbar"><div><h2>Pagos realizados</h2><p>Todos los pagos del cliente, incluidos los anulados.</p></div></div>
     <div class="table-wrap">
         <table class="data-table">
-            <thead><tr><th scope="col">Fecha</th><th scope="col">Venta</th><th scope="col">Monto</th><th scope="col">Método</th><th scope="col">Estado</th></tr></thead>
+            <thead><tr><th scope="col">Fecha</th><th scope="col">Venta</th><th scope="col">Monto</th><th scope="col">Aplicado a</th><th scope="col">Método</th><th scope="col">Estado</th></tr></thead>
             <tbody>
                 <?php if (!$account["pagos"]): ?>
-                    <tr><td class="empty-state" colspan="5">Aún no hay pagos registrados.</td></tr>
+                    <tr><td class="empty-state" colspan="6">Aún no hay pagos registrados.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($account["pagos"] as $payment): ?>
                     <tr class="<?= (int) $payment["estado"] === 1 ? "" : "is-cancelled" ?>">
                         <td><?= $e(date("d/m/Y H:i", strtotime($payment["fecha"]))) ?></td>
                         <td><?= $e($creditInvoice($payment)) ?></td>
                         <td>S/ <?= number_format((float) $payment["monto"], 2) ?></td>
+                        <td><?= $e($payment["cuotas_aplicadas"] ?: "—") ?></td>
                         <td><?= $e($paymentMethods[$payment["metodo_pago"]] ?? $payment["metodo_pago"]) ?></td>
                         <td><span class="status-badge <?= (int) $payment["estado"] === 1 ? "is-active" : "is-muted" ?>"><?= (int) $payment["estado"] === 1 ? "Válido" : "Anulado" ?></span></td>
                     </tr>

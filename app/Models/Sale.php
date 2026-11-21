@@ -1,6 +1,9 @@
 <?php
 class Sale
 {
+    public const MINIMUM_CREDIT_AMOUNT = 100.00;
+    public const MAX_CREDIT_INSTALLMENTS = 3;
+
     private PDO $db;
 
     public function __construct(PDO $db)
@@ -49,9 +52,10 @@ class Sale
         return $this->db->query("SELECT c.idcliente, c.nombre, c.nrodocumento, c.idtipodocumento, td.nombre AS tipo_documento,
                                        COALESCE((SELECT SUM(cr.saldo) FROM credito cr
                                                  WHERE cr.idcliente = c.idcliente AND cr.estado = 1), 0) AS deuda,
-                                       COALESCE((SELECT SUM(cr.saldo) FROM credito cr
-                                                 WHERE cr.idcliente = c.idcliente AND cr.estado = 1
-                                                   AND cr.fecha_vencimiento < CURDATE()), 0) AS deuda_vencida
+                                       COALESCE((SELECT SUM(cu.saldo) FROM credito cr
+                                                 INNER JOIN credito_cuota cu ON cu.idcredito = cr.idcredito
+                                                 WHERE cr.idcliente = c.idcliente AND cr.estado = 1 AND cu.estado = 1
+                                                   AND cu.fecha_vencimiento < CURDATE()), 0) AS deuda_vencida
                                 FROM cliente c INNER JOIN tipodocumento td ON td.idtipodocumento = c.idtipodocumento
                                 WHERE c.estado = 1 ORDER BY c.nombre")->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -77,9 +81,15 @@ class Sale
         $statement->execute(["id" => $id]);
         $sale = $statement->fetch(PDO::FETCH_ASSOC);
         if (!$sale) return null;
-        $statement = $this->db->prepare("SELECT idcredito, saldo, estado FROM credito WHERE idventa = :id");
+        $statement = $this->db->prepare("SELECT idcredito, saldo, estado, numero_cuotas, fecha_vencimiento FROM credito WHERE idventa = :id");
         $statement->execute(["id" => $id]);
         $sale["credito"] = $statement->fetch(PDO::FETCH_ASSOC) ?: null;
+        if ($sale["credito"]) {
+            $statement = $this->db->prepare("SELECT numero_cuota, fecha_vencimiento, monto, saldo, estado
+                                             FROM credito_cuota WHERE idcredito = :id ORDER BY numero_cuota");
+            $statement->execute(["id" => $sale["credito"]["idcredito"]]);
+            $sale["credito"]["cuotas"] = $statement->fetchAll(PDO::FETCH_ASSOC);
+        }
         $statement = $this->db->prepare("SELECT d.*, p.nombre AS producto, u.descripcion AS unidad_nombre
                                         FROM detalle_venta d INNER JOIN producto p ON p.idproducto = d.idproducto
                                         INNER JOIN unidad u ON u.idunidad = p.idunidad WHERE d.idventa = :id ORDER BY d.iddetalle");
@@ -161,6 +171,8 @@ class Sale
             if ($credit) {
                 $creditUpdate = $this->db->prepare("UPDATE credito SET estado = 0 WHERE idcredito = :id");
                 $creditUpdate->execute(["id" => $credit["idcredito"]]);
+                $installmentsUpdate = $this->db->prepare("UPDATE credito_cuota SET estado = 0 WHERE idcredito = :id");
+                $installmentsUpdate->execute(["id" => $credit["idcredito"]]);
             }
             $this->db->commit();
         } catch (Throwable $error) {
@@ -222,10 +234,16 @@ class Sale
             if ($isCredit && !$sale["idcliente"]) {
                 throw new RuntimeException("Para una venta a crédito, selecciona un cliente registrado.");
             }
+            $installments = filter_var($sale["numero_cuotas"] ?? 1, FILTER_VALIDATE_INT);
+            if ($isCredit && ($installments === false || $installments < 1 || $installments > self::MAX_CREDIT_INSTALLMENTS)) {
+                throw new RuntimeException("Selecciona entre 1 y " . self::MAX_CREDIT_INSTALLMENTS . " cuotas mensuales.");
+            }
             if ($isCredit && empty($sale["vencimiento"])) throw new RuntimeException("Indica la fecha de vencimiento del crédito.");
             if ($isCredit) {
-                $overdue = $this->db->prepare("SELECT COALESCE(SUM(saldo), 0) FROM credito
-                                               WHERE idcliente = :cliente AND estado = 1 AND fecha_vencimiento < CURDATE()");
+                $overdue = $this->db->prepare("SELECT COALESCE(SUM(cu.saldo), 0) FROM credito c
+                                               INNER JOIN credito_cuota cu ON cu.idcredito = c.idcredito
+                                               WHERE c.idcliente = :cliente AND c.estado = 1 AND cu.estado = 1
+                                                 AND cu.fecha_vencimiento < CURDATE()");
                 $overdue->execute(["cliente" => $sale["idcliente"]]);
                 $overdueAmount = (float) $overdue->fetchColumn();
                 if ($overdueAmount > 0) {
@@ -261,12 +279,37 @@ class Sale
                 $lines[] = ["product"=>$product, "cantidad"=>$quantity, "total"=>$lineTotal, "igv"=>$tax];
             }
             if (!$lines) throw new RuntimeException("Agrega al menos un producto a la venta.");
+            if ($isCredit && round($total, 2) < self::MINIMUM_CREDIT_AMOUNT) {
+                throw new RuntimeException("Las ventas a crédito están disponibles desde S/ " . number_format(self::MINIMUM_CREDIT_AMOUNT, 2) . ".");
+            }
+
+            $totalCents = (int) round($total * 100);
+            $receivedCents = 0;
+            $changeCents = 0;
+            if (!$isCredit) {
+                $receivedInput = trim((string) ($sale["monto_recibido"] ?? ""));
+                if ($receivedInput === "") {
+                    throw new RuntimeException("Ingresa el monto recibido para registrar la venta.");
+                } elseif (!preg_match('/^\d{1,9}(?:\.\d{1,2})?$/D', $receivedInput)) {
+                    throw new RuntimeException("Ingresa un monto recibido válido, con hasta dos decimales.");
+                } else {
+                    $receivedCents = (int) round((float) $receivedInput * 100);
+                }
+                if ($receivedCents <= 0) {
+                    throw new RuntimeException("El monto recibido debe ser mayor que cero.");
+                }
+                if ($receivedCents < $totalCents) {
+                    throw new RuntimeException("El monto recibido no puede ser menor al total de la venta.");
+                }
+                $changeCents = $receivedCents - $totalCents;
+            }
 
             $dueDate = $isCredit ? ($sale["vencimiento"] ?? null) : null;
-            $insert = $this->db->prepare("INSERT INTO venta (fecha,idcliente,idtipocomprobante,serie,correlativo,total,idusuario,total_gravado,total_exonerado,total_inafecto,total_igv,formapago,idmoneda,vencimiento)
-                                          VALUES (NOW(),:cliente,:tipo,:serie,:correlativo,:total,:usuario,:gravado,:exonerado,:inafecto,:igv,:pago,1,:vencimiento)");
+            $insert = $this->db->prepare("INSERT INTO venta (fecha,idcliente,idtipocomprobante,serie,correlativo,total,monto_recibido,vuelto,idusuario,total_gravado,total_exonerado,total_inafecto,total_igv,formapago,idmoneda,vencimiento)
+                                          VALUES (NOW(),:cliente,:tipo,:serie,:correlativo,:total,:recibido,:vuelto,:usuario,:gravado,:exonerado,:inafecto,:igv,:pago,1,:vencimiento)");
             $insert->execute(["cliente"=>$sale["idcliente"] ?: null, "tipo"=>$sale["idtipocomprobante"], "serie"=>$seriesRow["serie"],
-                "correlativo"=>(int)$seriesRow["correlativo"] + 1, "total"=>round($total,2), "usuario"=>$userId,
+                "correlativo"=>(int)$seriesRow["correlativo"] + 1, "total"=>round($total,2),
+                "recibido"=>number_format($receivedCents / 100, 2, ".", ""), "vuelto"=>number_format($changeCents / 100, 2, ".", ""), "usuario"=>$userId,
                 "gravado"=>round($gravado,2), "exonerado"=>round($exonerado,2), "inafecto"=>round($inafecto,2), "igv"=>round($igv,2), "pago"=>$sale["formapago"], "vencimiento"=>$dueDate]);
             $saleId = (int)$this->db->lastInsertId();
             $detail = $this->db->prepare("INSERT INTO detalle_venta (idventa,idproducto,cantidad,unidad,pventa,igv,total,idafectacion)
@@ -288,10 +331,12 @@ class Sale
                 if ($stockUpdate->rowCount() !== 1) throw new RuntimeException("No se pudo actualizar el stock de " . $p["nombre"] . ".");
             }
             if ($isCredit) {
-                $credit = $this->db->prepare("INSERT INTO credito (idventa, idcliente, monto_total, saldo, fecha_vencimiento, estado)
-                                              VALUES (:venta, :cliente, :monto, :saldo, :vencimiento, 1)");
+                $credit = $this->db->prepare("INSERT INTO credito (idventa, idcliente, monto_total, saldo, fecha_vencimiento, estado, numero_cuotas)
+                                              VALUES (:venta, :cliente, :monto, :saldo, :vencimiento, 1, :cuotas)");
                 $credit->execute(["venta"=>$saleId, "cliente"=>$sale["idcliente"], "monto"=>round($total,2),
-                    "saldo"=>round($total,2), "vencimiento"=>$dueDate]);
+                    "saldo"=>round($total,2), "vencimiento"=>$dueDate, "cuotas"=>$installments]);
+                $creditId = (int) $this->db->lastInsertId();
+                $this->createInstallmentSchedule($creditId, (int) $installments, (int) round($total * 100), $dueDate);
             }
             $advance = $this->db->prepare("UPDATE serie SET correlativo = :correlativo WHERE idserie = :id");
             $advance->execute(["correlativo"=>(int)$seriesRow["correlativo"] + 1,"id"=>$seriesRow["idserie"]]);
@@ -301,5 +346,36 @@ class Sale
             if ($this->db->inTransaction()) $this->db->rollBack();
             throw $error;
         }
+    }
+
+    private function createInstallmentSchedule(int $creditId, int $count, int $totalCents, string $firstDueDate): void
+    {
+        $insert = $this->db->prepare("INSERT INTO credito_cuota (idcredito, numero_cuota, fecha_vencimiento, monto, saldo, estado)
+                                      VALUES (:credito, :numero, :vencimiento, :monto, :saldo, 1)");
+        $baseCents = intdiv($totalCents, $count);
+        $extraCents = $totalCents % $count;
+        for ($index = 0; $index < $count; $index++) {
+            $cents = $baseCents + ($index < $extraCents ? 1 : 0);
+            $insert->execute([
+                "credito" => $creditId,
+                "numero" => $index + 1,
+                "vencimiento" => $this->monthlyDate($firstDueDate, $index),
+                "monto" => $this->formatCents($cents),
+                "saldo" => $this->formatCents($cents)
+            ]);
+        }
+    }
+
+    private function monthlyDate(string $date, int $months): string
+    {
+        $first = new DateTimeImmutable($date);
+        $day = (int) $first->format("j");
+        $month = $first->modify("first day of this month")->modify("+" . $months . " months");
+        return $month->setDate((int) $month->format("Y"), (int) $month->format("n"), min($day, (int) $month->format("t")))->format("Y-m-d");
+    }
+
+    private function formatCents(int $cents): string
+    {
+        return intdiv($cents, 100) . "." . str_pad((string) ($cents % 100), 2, "0", STR_PAD_LEFT);
     }
 }

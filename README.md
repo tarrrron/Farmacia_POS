@@ -32,10 +32,10 @@ Sistema de punto de venta (POS) para gestionar las ventas, el inventario, los cl
 | **Categorías** | Registrar, editar y cambiar el estado de las categorías de productos |
 | **Productos** | Registrar productos con precio, stock, stock de seguridad, código de barras e imagen |
 | **Clientes** | Registrar clientes con DNI o RUC |
-| **Ventas** | Registrar ventas con boleta (B001) o factura (F001) al contado o a crédito, ver el detalle y anularlas |
+| **Ventas** | Registrar ventas con boleta (B001) o factura (F001) al contado o a crédito desde S/ 100, con 1 a 3 cuotas mensuales |
 | **Inventario** | Registrar movimientos de entrada y salida de stock |
 | **Top productos** | Ver los productos más vendidos |
-| **Créditos** | Ver los créditos por cliente, registrar pagos (efectivo u otros métodos), anular pagos, dar prórrogas y emitir constancias |
+| **Créditos** | Consultar el cronograma de cuotas, registrar pagos (efectivo u otros métodos), anular pagos, dar prórrogas y emitir constancias |
 
 ## Estructura del proyecto
 
@@ -69,11 +69,13 @@ Farmacia_POS/
 
 3. **Crear la base de datos.** Abrir `http://localhost/phpmyadmin`, ir a **Importar** y cargar `database/farmacia_pos.sql`. Este script crea la base `farmacia_pos` con todas las tablas y los datos iniciales.
 
-   > ⚠️ El script **borra la base `farmacia_pos` si ya existe**. Si ya tienes datos y solo quieres actualizar la base, ejecuta en orden los archivos de `database/migraciones/` (`001_creditos.sql`, `002_menu_creditos.sql`, `003_mejoras.sql`).
+   > ⚠️ El script **borra la base `farmacia_pos` si ya existe**. Si ya tienes datos y solo quieres actualizar la base, ejecuta en orden los archivos de `database/migraciones/` (`001_creditos.sql`, `002_menu_creditos.sql`, `003_mejoras.sql`, `004_credito_cuotas.sql`, `005_monto_recibido_vuelto.sql`, `006_nota_venta.sql`). Las migraciones conservan los créditos existentes como una cuota única, asignan el total como monto recibido a las ventas al contado anteriores y agregan el comprobante Nota de venta.
 
 4. **Revisar la conexión** en `config/database.php`. Por defecto usa `localhost`, el usuario `root` y la contraseña vacía, que es la configuración estándar de XAMPP.
 
 5. **Configurar la consulta DNI/RUC de MiAPI Cloud (opcional).** Copia `config/miapi.local.example.php` como `config/miapi.local.php` y agrega una clave vigente de MiAPI Cloud en `token`. Este archivo local está excluido de Git. También puedes definir la variable de entorno `MIAPI_CLOUD_TOKEN`. La extensión cURL de PHP debe estar habilitada en XAMPP. Sin una clave, la venta funciona con clientes ya registrados y el formulario muestra cómo completar la configuración al intentar consultar.
+
+   Para personalizar los tickets, copia `config/receipt.local.example.php` como `config/receipt.local.php` y completa la razón social, RUC y dirección del negocio. Desde el detalle de una venta, **Imprimir ticket / PDF** abre el formato de 80 mm; en el diálogo de impresión puedes elegir una impresora o **Guardar como PDF**.
 
 6. **Abrir el sistema** en el navegador:
    ```

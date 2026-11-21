@@ -51,6 +51,7 @@ $baseUrl = "index.php?route=module/inventario&section=" . urlencode($section) . 
                         <?php
                         $stock = (float) $product["stock"];
                         $minimo = (float) $product["stockseguridad"];
+                        $mostrarAdvertenciaStock = (int) $product["estado"] === 1 && $stock > 0 && $stock <= $minimo;
                         if ((int) $product["estado"] !== 1) { $estado = "Inactivo"; $clase = "is-muted"; }
                         elseif ($stock <= 0) { $estado = "Agotado"; $clase = "is-danger"; }
                         elseif ($stock <= $minimo) { $estado = "Stock bajo"; $clase = "is-warning"; }
@@ -59,7 +60,7 @@ $baseUrl = "index.php?route=module/inventario&section=" . urlencode($section) . 
                         <tr>
                             <td><strong><?= $e($product["nombre"]) ?></strong><small><?= $e($product["codigobarra"] ?: "Sin código") ?></small></td>
                             <td><?= $e($product["categoria"]) ?></td>
-                            <td><?= number_format($stock, 0) ?><small><?= $e($product["unidad"]) ?></small></td>
+                            <td class="inventory-stock-cell"><span class="inventory-stock-main"><?= number_format($stock, 0) ?><?php if ($mostrarAdvertenciaStock): ?><span class="stock-low-indicator" title="El stock llegó al mínimo configurado"><svg aria-hidden="true" viewBox="0 0 16 16"><path d="M8 1.6 15 14H1z"/><path d="M8 5v4.2M8 11.5v.2"/></svg>Bajo</span><?php endif; ?></span><small><?= $e($product["unidad"]) ?></small></td>
                             <td><?= number_format($minimo, 0) ?></td>
                             <td><span class="status-badge <?= $clase ?>"><?= $estado ?></span></td>
                         </tr>
