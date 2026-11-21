@@ -3,11 +3,13 @@ class VentaController
 {
     private Sale $sales;
     private Profile $profiles;
+    private MiApiCloud $miApi;
 
-    public function __construct(Sale $sales, Profile $profiles)
+    public function __construct(Sale $sales, Profile $profiles, MiApiCloud $miApi)
     {
         $this->sales = $sales;
         $this->profiles = $profiles;
+        $this->miApi = $miApi;
     }
 
     public function index(): void
@@ -36,10 +38,29 @@ class VentaController
     {
         $menuOptions = $this->requireAccess("GET");
         $products = $this->sales->catalog(); $clients = $this->sales->clients();
-        $documentTypes = $this->sales->documentTypes(); $csrfToken = $_SESSION["venta_csrf"];
+        $documentTypes = $this->sales->documentTypes();
+        $clientDocumentTypes = $this->sales->clientDocumentTypes();
+        $csrfToken = $_SESSION["venta_csrf"];
         $error = $_SESSION["venta_error"] ?? ""; unset($_SESSION["venta_error"]);
         $view = __DIR__ . "/../Views/ventas/create.php";
         require __DIR__ . "/../Views/layout/app.php";
+    }
+
+    public function lookupDocument(): void
+    {
+        $this->requireAccess("POST");
+        $this->requireCsrf();
+        header("Content-Type: application/json; charset=utf-8");
+        try {
+            $client = $this->miApi->lookup((string) ($_POST["tipo"] ?? ""), (string) ($_POST["numero"] ?? ""));
+            echo json_encode(["success" => true, "cliente" => $client], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        } catch (InvalidArgumentException $error) {
+            http_response_code(422);
+            echo json_encode(["success" => false, "message" => $error->getMessage()], JSON_UNESCAPED_UNICODE);
+        } catch (RuntimeException $error) {
+            http_response_code(503);
+            echo json_encode(["success" => false, "message" => $error->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
     }
 
     public function store(): void
@@ -67,13 +88,51 @@ class VentaController
         $rawItems = $_POST["items"] ?? [];
         if (!is_array($rawItems)) $rawItems = [];
         try {
-            $id = $this->sales->create(["idtipocomprobante"=>$type,"idcliente"=>$client,"formapago"=>$_POST["formapago"],"vencimiento"=>$dueDate], $rawItems, (int)$_SESSION["idusuario"]);
+            $newClient = null;
+            $clientInput = $_POST["cliente"] ?? [];
+            if (!is_array($clientInput)) $clientInput = [];
+            $clientId = trim((string) $client);
+            $clientHasDetails = false;
+            foreach (["nrodocumento", "nombre", "razon_social", "direccion"] as $field) {
+                if (trim((string) ($clientInput[$field] ?? "")) !== "") $clientHasDetails = true;
+            }
+            if ($clientId === "" && $clientHasDetails) {
+                $newClient = $this->normalizeNewClient($clientInput);
+            }
+            $id = $this->sales->create(["idtipocomprobante"=>$type,"idcliente"=>$client,"cliente_nuevo"=>$newClient,"formapago"=>$_POST["formapago"],"vencimiento"=>$dueDate], $rawItems, (int)$_SESSION["idusuario"]);
             $_SESSION["venta_message"] = "Venta registrada correctamente.";
             header("Location: index.php?route=module/ventas/ver&id=" . $id, true, 303); exit;
         } catch (Throwable $error) {
             $_SESSION["venta_error"] = $error instanceof RuntimeException ? $error->getMessage() : "No se pudo registrar la venta. Intentalo nuevamente.";
             header("Location: index.php?route=module/ventas/crear", true, 303); exit;
         }
+    }
+
+    private function normalizeNewClient(array $input): array
+    {
+        $documentTypeId = filter_var($input["idtipodocumento"] ?? null, FILTER_VALIDATE_INT, ["options" => ["min_range" => 1]]);
+        $document = trim((string) ($input["nrodocumento"] ?? ""));
+        $name = trim((string) ($input["nombre"] ?? ""));
+        $address = trim((string) ($input["direccion"] ?? ""));
+        $businessName = trim((string) ($input["razon_social"] ?? ""));
+        if ($documentTypeId === false || strlen($document) > 20 || $name === "" || mb_strlen($name) > 150 || mb_strlen($address) > 200 || mb_strlen($businessName) > 150) {
+            throw new RuntimeException("Completa correctamente los datos del cliente antes de registrar la venta.");
+        }
+        $types = $this->sales->clientDocumentTypes();
+        $allowedType = null;
+        foreach ($types as $type) {
+            if ((int) $type["idtipodocumento"] === $documentTypeId) $allowedType = strtoupper((string) $type["nombre"]);
+        }
+        $length = $allowedType === "DNI" ? 8 : ($allowedType === "RUC" ? 11 : 0);
+        if ($length === 0 || !preg_match('/^\d{' . $length . '}$/D', $document)) {
+            throw new RuntimeException("El documento del cliente debe ser un DNI de 8 dígitos o un RUC de 11 dígitos.");
+        }
+        if ($allowedType === "RUC" && $businessName === "") $businessName = $name;
+        return ["idtipodocumento" => $documentTypeId, "nrodocumento" => $document, "nombre" => $name,
+            "razon_social" => $businessName, "direccion" => $address,
+            "departamento" => trim((string) ($input["departamento"] ?? "")),
+            "provincia" => trim((string) ($input["provincia"] ?? "")),
+            "distrito" => trim((string) ($input["distrito"] ?? ""))];
     }
 
     public function show(): void

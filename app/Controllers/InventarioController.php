@@ -18,9 +18,25 @@ class InventarioController
     {
         $menuOptions = $this->requireAccess("GET");
 
-        $products = $this->inventario->productos();
+        $section = ($_GET["section"] ?? "existencias") === "historial" ? "historial" : "existencias";
+        $perPage = 25;
+        $page = filter_var($_GET["page"] ?? 1, FILTER_VALIDATE_INT, ["options" => ["min_range" => 1]]);
+        $page = $page === false ? 1 : $page;
+        $products = [];
+        $movimientos = [];
         $resumen = $this->inventario->resumen();
-        $movimientos = $this->inventario->historial();
+
+        if ($section === "historial") {
+            $totalRows = $this->inventario->contarMovimientos();
+            $totalPages = max(1, (int) ceil($totalRows / $perPage));
+            $page = min($page, $totalPages);
+            $movimientos = $this->inventario->historial($perPage, ($page - 1) * $perPage);
+        } else {
+            $totalRows = $this->inventario->contarProductos();
+            $totalPages = max(1, (int) ceil($totalRows / $perPage));
+            $page = min($page, $totalPages);
+            $products = $this->inventario->productos($perPage, ($page - 1) * $perPage);
+        }
 
         $message = $_SESSION["inventario_message"] ?? "";
         unset($_SESSION["inventario_message"]);

@@ -16,6 +16,7 @@ require __DIR__ . "/app/Models/Category.php";
 require __DIR__ . "/app/Models/Product.php";
 require __DIR__ . "/app/Models/Client.php";
 require __DIR__ . "/app/Models/Sale.php";
+require __DIR__ . "/app/Services/MiApiCloud.php";
 require __DIR__ . "/app/Models/Credit.php";
 require __DIR__ . "/app/Controllers/AuthController.php";
 require __DIR__ . "/app/Controllers/DashboardController.php";
@@ -42,7 +43,7 @@ $categoriaController = new CategoriaController(new Category($db), new Profile($d
 $productoController = new ProductoController(new Product($db), new Category($db), new Profile($db));
 $topProductosController = new TopProductosController(new Product($db), new Profile($db));
 $clienteController = new ClienteController(new Client($db), new Profile($db));
-$ventaController = new VentaController(new Sale($db), new Profile($db));
+$ventaController = new VentaController(new Sale($db), new Profile($db), new MiApiCloud());
 $creditoController = new CreditoController(new Credit($db), new Profile($db));
 $inventarioController = new InventarioController(new Inventario($db),new Profile($db));
 // Si el usuario fue desactivado mientras tenía la sesión abierta, se cierra su sesión.
@@ -151,6 +152,7 @@ $ventaRoutes = [
     "vista/ventas.php" => "index",
     "module/ventas/crear" => "create",
     "module/ventas/guardar" => "store",
+    "module/ventas/consultar-documento" => "lookupDocument",
     "module/ventas/anular" => "cancel",
     "module/ventas/ver" => "show"
 ];

@@ -17,3 +17,4 @@ database/*_backup.sql
 database/*_local.sql
 
 storage/sessions/sess_*
+config/miapi.local.php

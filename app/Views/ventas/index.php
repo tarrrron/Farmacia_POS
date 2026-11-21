@@ -42,7 +42,7 @@ $filtered = $from !== "" || $to !== "";
                 <form action="index.php?route=module/ventas/anular" method="post">
                     <input type="hidden" name="csrf_token" value="<?= $e($csrfToken) ?>">
                     <input type="hidden" name="id" value="<?= (int)$sale["idventa"] ?>">
-                    <button class="btn btn-action-delete btn-sm" type="submit" onclick="return confirm('La venta se anulará: conservará su comprobante y se devolverá el stock de sus productos. ¿Continuar?')">Anular</button>
+                    <button class="btn btn-action-delete btn-sm" type="submit" data-confirm="La venta se anulará: conservará su comprobante y se devolverá el stock de sus productos. ¿Continuar?"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 8 8 8"/></svg><span>Anular</span></button>
                 </form>
             <?php endif; ?>
         </td>

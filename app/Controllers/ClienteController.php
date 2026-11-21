@@ -58,7 +58,8 @@ class ClienteController
             $this->fail(422, "Estado de cliente invalido.");
         }
 
-        $this->clients->changeStatus((int) $client["idcliente"], (int) $status);
+        $newStatus = $action === "eliminar" ? 2 : (int) $status;
+        $this->clients->changeStatus((int) $client["idcliente"], $newStatus);
         $message = $action === "activar" ? "Cliente activado." : ($action === "desactivar" ? "Cliente desactivado." : "Cliente eliminado y marcado como inactivo.");
         $this->redirect($message);
     }

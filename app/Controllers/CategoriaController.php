@@ -60,7 +60,8 @@ class CategoriaController
         }
 
         try {
-            $this->categories->changeStatus((int) $category["idcategoria"], (int) $status);
+            $newStatus = $action === "eliminar" ? 2 : (int) $status;
+            $this->categories->changeStatus((int) $category["idcategoria"], $newStatus);
         } catch (DomainException $exception) {
             $_SESSION["categoria_error"] = $exception->getMessage();
             header("Location: index.php?route=module/categorias", true, 303);

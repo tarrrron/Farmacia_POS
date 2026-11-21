@@ -46,18 +46,25 @@ class Sale
 
     public function clients(): array
     {
-        return $this->db->query("SELECT c.idcliente, c.nombre, c.nrodocumento,
+        return $this->db->query("SELECT c.idcliente, c.nombre, c.nrodocumento, c.idtipodocumento, td.nombre AS tipo_documento,
                                        COALESCE((SELECT SUM(cr.saldo) FROM credito cr
                                                  WHERE cr.idcliente = c.idcliente AND cr.estado = 1), 0) AS deuda,
                                        COALESCE((SELECT SUM(cr.saldo) FROM credito cr
                                                  WHERE cr.idcliente = c.idcliente AND cr.estado = 1
                                                    AND cr.fecha_vencimiento < CURDATE()), 0) AS deuda_vencida
-                                FROM cliente c WHERE c.estado = 1 ORDER BY c.nombre")->fetchAll(PDO::FETCH_ASSOC);
+                                FROM cliente c INNER JOIN tipodocumento td ON td.idtipodocumento = c.idtipodocumento
+                                WHERE c.estado = 1 ORDER BY c.nombre")->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function documentTypes(): array
     {
         return $this->db->query("SELECT idtipocomprobante, nombre FROM tipocomprobante WHERE estado = 1 ORDER BY idtipocomprobante")->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function clientDocumentTypes(): array
+    {
+        return $this->db->query("SELECT idtipodocumento, nombre FROM tipodocumento WHERE estado = 1 ORDER BY idtipodocumento")
+            ->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function find(int $id): ?array
@@ -174,22 +181,48 @@ class Sale
             $seriesRow = $series->fetch(PDO::FETCH_ASSOC);
             if (!$seriesRow) throw new RuntimeException("No hay una serie activa para el comprobante seleccionado.");
 
-            $typeCheck = $this->db->prepare("SELECT 1 FROM tipocomprobante WHERE idtipocomprobante = :id AND estado = 1");
+            $typeCheck = $this->db->prepare("SELECT nombre FROM tipocomprobante WHERE idtipocomprobante = :id AND estado = 1");
             $typeCheck->execute(["id" => $sale["idtipocomprobante"]]);
-            if (!$typeCheck->fetchColumn()) throw new RuntimeException("Selecciona un comprobante activo.");
+            $receiptName = $typeCheck->fetchColumn();
+            if (!$receiptName) throw new RuntimeException("Selecciona un comprobante activo.");
+            $isInvoice = stripos((string) $receiptName, "factura") !== false;
+            if (empty($sale["idcliente"]) && !empty($sale["cliente_nuevo"]) && is_array($sale["cliente_nuevo"])) {
+                $newClient = $sale["cliente_nuevo"];
+                $duplicate = $this->db->prepare("SELECT idcliente, estado FROM cliente WHERE nrodocumento = :documento LIMIT 1 FOR UPDATE");
+                $duplicate->execute(["documento" => $newClient["nrodocumento"]]);
+                $existing = $duplicate->fetch(PDO::FETCH_ASSOC);
+                if ($existing) {
+                    if ((int) $existing["estado"] !== 1) throw new RuntimeException("Ya existe un cliente con ese documento, pero está inactivo. Actívalo desde Clientes antes de continuar.");
+                    $sale["idcliente"] = (int) $existing["idcliente"];
+                } else {
+                    $type = $this->db->prepare("SELECT nombre FROM tipodocumento WHERE idtipodocumento = :id AND estado = 1");
+                    $type->execute(["id" => $newClient["idtipodocumento"]]);
+                    if (!$type->fetchColumn()) throw new RuntimeException("Selecciona un tipo de documento activo para el cliente.");
+                    $insertClient = $this->db->prepare("INSERT INTO cliente
+                        (nombre, nombre_comercial, razon_social, idtipodocumento, nrodocumento, direccion, departamento, provincia, distrito, estado)
+                        VALUES (:nombre, NULL, :razon_social, :tipo, :documento, :direccion, :departamento, :provincia, :distrito, 1)");
+                    $insertClient->execute(["nombre" => $newClient["nombre"], "razon_social" => $newClient["razon_social"] ?: null,
+                        "tipo" => $newClient["idtipodocumento"], "documento" => $newClient["nrodocumento"],
+                        "direccion" => $newClient["direccion"] ?: null, "departamento" => $newClient["departamento"] ?: null,
+                        "provincia" => $newClient["provincia"] ?: null, "distrito" => $newClient["distrito"] ?: null]);
+                    $sale["idcliente"] = (int) $this->db->lastInsertId();
+                }
+            }
             if ($sale["idcliente"]) {
-                $clientCheck = $this->db->prepare("SELECT idtipodocumento FROM cliente WHERE idcliente = :id AND estado = 1");
+                $clientCheck = $this->db->prepare("SELECT c.idtipodocumento, td.nombre AS tipo_documento FROM cliente c
+                    INNER JOIN tipodocumento td ON td.idtipodocumento = c.idtipodocumento WHERE c.idcliente = :id AND c.estado = 1");
                 $clientCheck->execute(["id" => $sale["idcliente"]]);
-                $clientDocumentType = $clientCheck->fetchColumn();
-                if ($clientDocumentType === false) throw new RuntimeException("El cliente seleccionado ya no esta disponible.");
-                if ((int)$sale["idtipocomprobante"] === 2 && (int)$clientDocumentType !== 2) throw new RuntimeException("Para emitir factura, selecciona un cliente registrado con RUC.");
-            } elseif ((int)$sale["idtipocomprobante"] === 2) {
+                $clientRecord = $clientCheck->fetch(PDO::FETCH_ASSOC);
+                if (!$clientRecord) throw new RuntimeException("El cliente seleccionado ya no está disponible.");
+                if ($isInvoice && strtoupper((string) $clientRecord["tipo_documento"]) !== "RUC") throw new RuntimeException("Para emitir factura, selecciona un cliente registrado con RUC.");
+            } elseif ($isInvoice) {
                 throw new RuntimeException("Para emitir factura, selecciona un cliente con RUC.");
             }
             $isCredit = $sale["formapago"] === "R";
             if ($isCredit && !$sale["idcliente"]) {
                 throw new RuntimeException("Para una venta a crédito, selecciona un cliente registrado.");
             }
+            if ($isCredit && empty($sale["vencimiento"])) throw new RuntimeException("Indica la fecha de vencimiento del crédito.");
             if ($isCredit) {
                 $overdue = $this->db->prepare("SELECT COALESCE(SUM(saldo), 0) FROM credito
                                                WHERE idcliente = :cliente AND estado = 1 AND fecha_vencimiento < CURDATE()");

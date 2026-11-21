@@ -104,7 +104,8 @@ $errors = $errors ?? [];
                     name="cantidad"
                     min="0.01"
                     max="999999999.99"
-                    step="0.01"
+                    step="1"
+                    inputmode="numeric"
                     required
                     value="<?= $e($old["cantidad"] ?? "") ?>"
                 >

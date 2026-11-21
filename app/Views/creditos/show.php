@@ -112,7 +112,7 @@ unset($_SESSION["credito_last_payment"]);
                                         <input type="hidden" name="id" value="<?= (int) $credit["idcredito"] ?>">
                                         <input type="hidden" name="idpago" value="<?= (int) $payment["idpago"] ?>">
                                         <input type="hidden" name="motivo" value="">
-                                        <button class="btn btn-action-delete btn-sm" type="submit">Anular</button>
+                                        <button class="btn btn-action-delete btn-sm" type="submit"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 8 8 8"/></svg><span>Anular</span></button>
                                     </form>
                                 <?php endif; ?>
                             <?php endif; ?>

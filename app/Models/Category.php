@@ -14,6 +14,7 @@ class Category
                                        COUNT(p.idproducto) AS productos_asociados
                                 FROM categoria c
                                 LEFT JOIN producto p ON p.idcategoria = c.idcategoria
+                                WHERE c.estado <> 2
                                 GROUP BY c.idcategoria, c.nombre, c.estado, c.fecha_creacion
                                 ORDER BY c.idcategoria")->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -73,7 +74,7 @@ class Category
 
     public function changeStatus(int $id, int $status): void
     {
-        if (!in_array($status, [0, 1], true)) {
+        if (!in_array($status, [0, 1, 2], true)) {
             throw new InvalidArgumentException("Estado de categoria invalido.");
         }
 
@@ -85,7 +86,7 @@ class Category
                 throw new DomainException("La categoría ya no existe.");
             }
 
-            if ($status === 0) {
+            if ($status !== 1) {
                 $linkedProduct = $this->db->prepare("SELECT idproducto FROM producto WHERE idcategoria = :id LIMIT 1 FOR UPDATE");
                 $linkedProduct->execute(["id" => $id]);
                 if ($linkedProduct->fetchColumn() !== false) {

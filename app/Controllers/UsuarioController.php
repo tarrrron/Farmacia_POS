@@ -36,7 +36,8 @@ class UsuarioController
     public function edit(): void
     {
         $menuOptions = $this->requireAccess("GET");
-        $this->renderForm($menuOptions, $this->requireUser($_GET["id"] ?? null), []);
+        $user = $this->requireUser($_GET["id"] ?? null);
+        $this->renderForm($menuOptions, $user, []);
     }
 
     public function update(): void
@@ -127,7 +128,8 @@ class UsuarioController
             $this->fail(422, "No puedes eliminar el usuario con el que iniciaste sesión.");
         }
         try {
-            $this->users->changeStatus((int) $user["idusuario"], (int) $status);
+            $newStatus = $action === "eliminar" ? 2 : (int) $status;
+            $this->users->changeStatus((int) $user["idusuario"], $newStatus);
         } catch (InvalidArgumentException $exception) {
             $_SESSION["usuario_error"] = $exception->getMessage();
             header("Location: index.php?route=module/usuarios", true, 303);
