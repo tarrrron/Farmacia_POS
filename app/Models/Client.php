@@ -15,6 +15,7 @@ class Client
                                        td.nombre AS tipo_documento
                                 FROM cliente c
                                 INNER JOIN tipodocumento td ON td.idtipodocumento = c.idtipodocumento
+                                WHERE c.estado <> 2
                                 ORDER BY c.idcliente")->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -87,7 +88,7 @@ class Client
 
     public function changeStatus(int $id, int $status): void
     {
-        if (!in_array($status, [0, 1], true)) {
+        if (!in_array($status, [0, 1, 2], true)) {
             throw new InvalidArgumentException("Estado de cliente invalido.");
         }
 

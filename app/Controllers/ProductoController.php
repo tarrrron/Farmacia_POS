@@ -16,6 +16,7 @@ class ProductoController
     {
         $menuOptions = $this->requireAccess("GET");
         $products = $this->products->all();
+        $categories = $this->categories->active();
         $message = $_SESSION["producto_message"] ?? "";
         unset($_SESSION["producto_message"]);
         $csrfToken = $_SESSION["producto_csrf"];
@@ -60,7 +61,8 @@ class ProductoController
             $this->fail(422, "Estado de producto invalido.");
         }
 
-        $this->products->changeStatus((int) $product["idproducto"], (int) $status);
+        $newStatus = $action === "eliminar" ? 2 : (int) $status;
+        $this->products->changeStatus((int) $product["idproducto"], $newStatus);
         $message = $action === "activar" ? "Producto activado." : ($action === "desactivar" ? "Producto desactivado." : "Producto eliminado y marcado como inactivo.");
         $this->redirect($message);
     }
@@ -193,6 +195,13 @@ class ProductoController
                 $errors[] = "Los precios y cantidades deben ser numeros mayores o iguales a cero.";
                 break;
             }
+        }
+
+        if (filter_var($product["stockseguridad"], FILTER_VALIDATE_INT, ["options" => ["min_range" => 0]]) === false) {
+            $errors[] = "El stock minimo debe ser un numero entero mayor o igual a cero.";
+        }
+        if ($excludeId === 0 && filter_var($product["stock"], FILTER_VALIDATE_INT, ["options" => ["min_range" => 0]]) === false) {
+            $errors[] = "El stock inicial debe ser un numero entero mayor o igual a cero.";
         }
 
         if (is_numeric($product["pventa"]) && is_numeric($product["pcompra"])

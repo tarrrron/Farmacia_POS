@@ -51,6 +51,7 @@ class User
         return $this->db->query("SELECT u.idusuario, u.nombre, u.usuario, p.nombre AS perfil, u.estado
                                 FROM usuario u
                                 LEFT JOIN perfil p ON p.idperfil = u.idperfil
+                                WHERE u.estado <> 2
                                 ORDER BY u.idusuario")->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -69,7 +70,9 @@ class User
 
     public function findById(int $id): ?array
     {
-        $statement = $this->db->prepare("SELECT idusuario, nombre, usuario, idperfil, estado FROM usuario WHERE idusuario = :id");
+        $statement = $this->db->prepare("SELECT u.idusuario, u.nombre, u.usuario, u.idperfil, u.estado, p.nombre AS perfil
+                                        FROM usuario u LEFT JOIN perfil p ON p.idperfil = u.idperfil
+                                        WHERE u.idusuario = :id");
         $statement->execute(["id" => $id]);
         return $statement->fetch(PDO::FETCH_ASSOC) ?: null;
     }
@@ -99,13 +102,13 @@ class User
 
     public function changeStatus(int $id, int $status): void
     {
-        if (!in_array($status, [0, 1], true)) {
+        if (!in_array($status, [0, 1, 2], true)) {
             throw new InvalidArgumentException("Estado de usuario inválido.");
         }
 
-        if ($status === 0) {
-            $statement = $this->db->prepare("UPDATE usuario SET estado = 0 WHERE idusuario = :id");
-            $statement->execute(["id" => $id]);
+        if ($status !== 1) {
+            $statement = $this->db->prepare("UPDATE usuario SET estado = :estado WHERE idusuario = :id");
+            $statement->execute(["estado" => $status, "id" => $id]);
             return;
         }
 

@@ -50,21 +50,20 @@
             <div class="form-field">
                 <label for="pcompra">Precio compra</label>
                 <input id="pcompra" name="pcompra" type="number" min="0" step="0.01" required value="<?= htmlspecialchars((string) $product["pcompra"], ENT_QUOTES, "UTF-8") ?>">
-                <small id="product-margin" aria-live="polite"></small>
             </div>
             <div class="form-field">
                 <label for="stock"><?= $editing ? "Stock actual" : "Stock inicial" ?></label>
                 <?php if ($editing): ?>
-                    <input id="stock" type="number" value="<?= htmlspecialchars((string) $product["stock"], ENT_QUOTES, "UTF-8") ?>" readonly>
+                    <input id="stock" type="number" step="1" value="<?= (int) $product["stock"] ?>" readonly>
                     <small>El stock se modifica desde <a class="text-link" href="index.php?route=module/inventario/crear">Inventario</a> o con las ventas.</small>
                 <?php else: ?>
-                    <input id="stock" name="stock" type="number" min="0" step="0.01" required value="<?= htmlspecialchars((string) $product["stock"], ENT_QUOTES, "UTF-8") ?>">
+                    <input id="stock" name="stock" type="number" min="0" step="1" required value="<?= (int) $product["stock"] ?>">
                     <small>Se registrará como movimiento de entrada “Stock inicial”.</small>
                 <?php endif; ?>
             </div>
             <div class="form-field">
                 <label for="stockseguridad">Stock mínimo</label>
-                <input id="stockseguridad" name="stockseguridad" type="number" min="0" step="0.01" required value="<?= htmlspecialchars((string) $product["stockseguridad"], ENT_QUOTES, "UTF-8") ?>">
+                <input id="stockseguridad" name="stockseguridad" type="number" min="0" step="1" required value="<?= (int) $product["stockseguridad"] ?>">
             </div>
             <div class="form-field">
                 <label for="idcategoria">Categoría</label>

@@ -18,6 +18,7 @@ class Product
                                 INNER JOIN categoria c ON c.idcategoria = p.idcategoria
                                 INNER JOIN unidad u ON u.idunidad = p.idunidad
                                 INNER JOIN afectacion a ON a.idafectacion = p.idafectacion
+                                WHERE p.estado <> 2
                                 ORDER BY p.idproducto")->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -147,7 +148,7 @@ class Product
 
     public function changeStatus(int $id, int $status): void
     {
-        if (!in_array($status, [0, 1], true)) {
+        if (!in_array($status, [0, 1, 2], true)) {
             throw new InvalidArgumentException("Estado de producto invalido.");
         }
 

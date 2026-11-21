@@ -73,7 +73,9 @@ Farmacia_POS/
 
 4. **Revisar la conexión** en `config/database.php`. Por defecto usa `localhost`, el usuario `root` y la contraseña vacía, que es la configuración estándar de XAMPP.
 
-5. **Abrir el sistema** en el navegador:
+5. **Configurar la consulta DNI/RUC de MiAPI Cloud (opcional).** Copia `config/miapi.local.example.php` como `config/miapi.local.php` y agrega una clave vigente de MiAPI Cloud en `token`. Este archivo local está excluido de Git. También puedes definir la variable de entorno `MIAPI_CLOUD_TOKEN`. La extensión cURL de PHP debe estar habilitada en XAMPP. Sin una clave, la venta funciona con clientes ya registrados y el formulario muestra cómo completar la configuración al intentar consultar.
+
+6. **Abrir el sistema** en el navegador:
    ```
    http://localhost/Farmacia_POS/
    ```

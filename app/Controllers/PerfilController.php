@@ -34,6 +34,9 @@ class PerfilController
     {
         $menuOptions = $this->requireAccess(["GET", "POST"]);
         $profile = $editing ? $this->requireProfile($_GET["id"] ?? null) : ["idperfil" => 0, "nombre" => ""];
+        if ($editing && $this->isAdministratorProfile($profile)) {
+            $this->fail(403, "El perfil Administrador está protegido y no se puede editar.");
+        }
         $accessOptions = $this->profiles->optionsWithAccess((int) ($profile["idperfil"] ?? 0));
         $error = "";
 
@@ -88,9 +91,15 @@ class PerfilController
             ($action !== "activar" && $status !== "0")) {
             $this->fail(422, "Estado de perfil inválido.");
         }
+        if ($this->isAdministratorProfile($profile) && $action !== "activar") {
+            $_SESSION["perfil_error"] = "El perfil Administrador está protegido y no se puede desactivar ni eliminar.";
+            header("Location: index.php?route=module/perfiles", true, 303);
+            exit;
+        }
 
         try {
-            $this->profiles->changeStatus((int) $profile["idperfil"], (int) $status);
+            $newStatus = $action === "eliminar" ? 2 : (int) $status;
+            $this->profiles->changeStatus((int) $profile["idperfil"], $newStatus);
         } catch (DomainException $exception) {
             $_SESSION["perfil_error"] = $exception->getMessage();
             header("Location: index.php?route=module/perfiles", true, 303);
@@ -137,6 +146,11 @@ class PerfilController
             $this->fail(404, "Perfil no encontrado.");
         }
         return $profile;
+    }
+
+    private function isAdministratorProfile(array $profile): bool
+    {
+        return strtoupper(trim((string) ($profile["nombre"] ?? ""))) === "ADMINISTRADOR";
     }
 
     private function requireCsrf(): void

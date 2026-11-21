@@ -10,7 +10,7 @@ class Inventario
         $this->db = $db;
     }
 
-    public function productos(): array
+    public function productos(int $limit = 25, int $offset = 0): array
     {
         $sql = "SELECT
                     p.idproducto,
@@ -28,9 +28,19 @@ class Inventario
                     ON c.idcategoria = p.idcategoria
                 INNER JOIN unidad u
                     ON u.idunidad = p.idunidad
+                WHERE p.estado <> 2
                 ORDER BY p.nombre ASC";
+        $sql .= " LIMIT :limit OFFSET :offset";
+        $statement = $this->db->prepare($sql);
+        $statement->bindValue(":limit", $limit, PDO::PARAM_INT);
+        $statement->bindValue(":offset", $offset, PDO::PARAM_INT);
+        $statement->execute();
+        return $statement->fetchAll();
+    }
 
-        return $this->db->query($sql)->fetchAll();
+    public function contarProductos(): int
+    {
+        return (int) $this->db->query("SELECT COUNT(*) FROM producto WHERE estado <> 2")->fetchColumn();
     }
 
     public function productosActivos(): array
@@ -67,7 +77,7 @@ class Inventario
         return $this->db->query($sql)->fetch();
     }
 
-    public function historial(): array
+    public function historial(int $limit = 25, int $offset = 0): array
     {
         $sql = "SELECT
                     m.idmovimiento,
@@ -85,9 +95,18 @@ class Inventario
                 INNER JOIN usuario u
                     ON u.idusuario = m.idusuario
                 ORDER BY m.fecha DESC, m.idmovimiento DESC
-                LIMIT 100";
+                LIMIT :limit OFFSET :offset";
 
-        return $this->db->query($sql)->fetchAll();
+        $statement = $this->db->prepare($sql);
+        $statement->bindValue(":limit", $limit, PDO::PARAM_INT);
+        $statement->bindValue(":offset", $offset, PDO::PARAM_INT);
+        $statement->execute();
+        return $statement->fetchAll();
+    }
+
+    public function contarMovimientos(): int
+    {
+        return (int) $this->db->query("SELECT COUNT(*) FROM movimiento_inventario")->fetchColumn();
     }
 
     public function registrar(
@@ -101,9 +120,9 @@ class Inventario
             throw new InvalidArgumentException("Tipo de movimiento invalido.");
         }
 
-        if (!preg_match('/^\d{1,9}(?:\.\d{1,2})?$/D', $cantidad)
+        if (!preg_match('/^\d{1,9}$/D', $cantidad)
             || (float) $cantidad <= 0) {
-            throw new InvalidArgumentException("Cantidad invalida.");
+            throw new InvalidArgumentException("La cantidad debe ser un numero entero mayor que cero.");
         }
 
         if ($motivo === "" || mb_strlen($motivo, "UTF-8") > 255) {

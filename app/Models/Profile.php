@@ -14,6 +14,7 @@ class Profile
                                        COUNT(CASE WHEN u.estado = 1 THEN 1 END) AS usuarios_activos
                                 FROM perfil p
                                 LEFT JOIN usuario u ON u.idperfil = p.idperfil
+                                WHERE p.estado <> 2
                                 GROUP BY p.idperfil, p.nombre, p.estado, p.fecha_creacion
                                 ORDER BY p.idperfil")->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -40,7 +41,7 @@ class Profile
 
     public function changeStatus(int $profileId, int $status): void
     {
-        if (!in_array($status, [0, 1], true)) {
+        if (!in_array($status, [0, 1, 2], true)) {
             throw new InvalidArgumentException("Estado de perfil inválido.");
         }
 
@@ -52,7 +53,7 @@ class Profile
                 throw new DomainException("El perfil ya no existe.");
             }
 
-            if ($status === 0) {
+            if ($status !== 1) {
                 $assignedUser = $this->db->prepare("SELECT idusuario FROM usuario WHERE idperfil = :idperfil AND estado = 1 LIMIT 1 FOR UPDATE");
                 $assignedUser->execute(["idperfil" => $profileId]);
                 if ($assignedUser->fetchColumn() !== false) {
@@ -119,11 +120,11 @@ class Profile
     public function menuOptions(int $profileId): array
     {
         $sql = "SELECT o.descripcion, o.url, o.icono
-                FROM acceso a
-                INNER JOIN opcion o ON o.idopcion = a.idopcion
-                WHERE a.idperfil = :idperfil
-                  AND a.estado = 1
-                  AND o.estado = 1
+                FROM perfil p
+                INNER JOIN opcion o ON o.estado = 1
+                LEFT JOIN acceso a ON a.idopcion = o.idopcion AND a.idperfil = p.idperfil
+                WHERE p.idperfil = :idperfil
+                  AND (UPPER(p.nombre) = 'ADMINISTRADOR' OR a.estado = 1)
                 ORDER BY o.idopcion";
 
         $statement = $this->db->prepare($sql);
